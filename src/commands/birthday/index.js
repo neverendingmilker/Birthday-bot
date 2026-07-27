@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { handleAdd } = require('./handlers/add');
 const { handleRole } = require('./handlers/role');
 const { handleRemoveRole } = require('./handlers/removerole');
+const { handleList } = require('./handlers/list');
 
 const data = new SlashCommandBuilder()
   .setName('birthday')
@@ -39,6 +40,9 @@ const data = new SlashCommandBuilder()
           .setMinValue(1)
           .setRequired(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub.setName('list').setDescription('Mostra tutti i compleanni del server, divisi per mese')
   );
 
 async function execute(interaction) {
@@ -51,6 +55,8 @@ async function execute(interaction) {
       return handleRole(interaction);
     case 'removerole':
       return handleRemoveRole(interaction);
+    case 'list':
+      return handleList(interaction);
     default:
       return interaction.reply({ content: 'Subcommand sconosciuta.', ephemeral: true });
   }

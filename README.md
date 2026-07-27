@@ -58,6 +58,7 @@ Nessun file esistente va modificato per aggiungere una feature (tranne il colleg
 - `/birthday add giorno:<1-31> mese:<1-12> [anno]` — chiunque può salvare il proprio compleanno.
 - `/birthday role ruolo:<@ruolo>` — **admin (permesso Gestisci Ruoli)**: imposta il ruolo da assegnare il giorno del compleanno.
 - `/birthday removerole timer:<ore>` — **admin**: imposta dopo quante ore rimuovere il ruolo (default 24).
+- `/birthday list` — mostra un embed con tutti i compleanni del server, divisi per mese e ordinati dal più vicino, con il conto alla rovescia in giorni per ciascuno.
 
 Ogni giorno a mezzanotte (fuso orario impostato in `TZ` nel `.env`) il bot controlla chi compie gli anni e assegna il ruolo automaticamente; un controllo periodico (ogni 5 minuti) rimuove il ruolo una volta scaduto il timer configurato.
 

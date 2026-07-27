@@ -79,6 +79,16 @@ async function getBirthdaysForToday(day, month) {
   return result.rows;
 }
 
+// Tutti i compleanni salvati in UN server (usata da /birthday list)
+async function getAllBirthdaysInGuild(guildId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT * FROM birthdays WHERE guild_id = ?',
+    args: [guildId],
+  });
+  return result.rows;
+}
+
 // --- Assegnazioni attive del ruolo compleanno (per sapere quando rimuoverlo) ---
 
 async function recordRoleAssignment(guildId, userId, assignedAt, yearAssigned) {
@@ -123,6 +133,7 @@ module.exports = {
   getBirthday,
   deleteBirthday,
   getBirthdaysForToday,
+  getAllBirthdaysInGuild,
   recordRoleAssignment,
   getAllActiveAssignments,
   removeRoleAssignment,
