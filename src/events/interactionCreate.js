@@ -10,10 +10,10 @@ module.exports = {
     try {
       await command.execute(interaction);
     } catch (err) {
-      console.error(`Errore eseguendo il comando "${interaction.commandName}":`, err);
+      console.error(`Error executing command "${interaction.commandName}":`, err);
 
       const errorReply = {
-        content: '⚠️ Si e\' verificato un errore eseguendo questo comando.',
+        content: '⚠️ An error occurred while executing this command.',
         ephemeral: true,
       };
 

@@ -1,56 +1,56 @@
 const { EmbedBuilder } = require('discord.js');
 const birthdayManager = require('../../../features/birthday/birthdayManager');
 
-const COLORE_EMBED = 0xff6fa5;
-const LUNGHEZZA_MASSIMA_CAMPO = 1024; // limite di Discord per il valore di un field embed
+const EMBED_COLOR = 0xff6fa5;
+const MAX_FIELD_LENGTH = 1024; // Discord's limit for an embed field value
 
-function formattaData(date) {
-  const gg = String(date.getDate()).padStart(2, '0');
+function formatDate(date) {
+  const dd = String(date.getDate()).padStart(2, '0');
   const mm = String(date.getMonth() + 1).padStart(2, '0');
-  return `${gg}/${mm}/${date.getFullYear()}`;
+  return `${dd}/${mm}/${date.getFullYear()}`;
 }
 
-function formattaGiorniMancanti(daysUntil) {
-  if (daysUntil === 0) return 'oggi! 🎉';
-  if (daysUntil === 1) return 'domani';
-  return `tra ${daysUntil} giorni`;
+function formatDaysLeft(daysUntil) {
+  if (daysUntil === 0) return 'today! 🎉';
+  if (daysUntil === 1) return 'tomorrow';
+  return `in ${daysUntil} days`;
 }
 
-function tronca(testo, max) {
-  if (testo.length <= max) return testo;
-  return `${testo.slice(0, max - 1)}…`;
+function truncate(text, max) {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
 }
 
 async function handleList(interaction) {
-  const gruppi = await birthdayManager.getUpcomingBirthdaysGroupedByMonth(interaction.guildId);
+  const groups = await birthdayManager.getUpcomingBirthdaysGroupedByMonth(interaction.guildId);
 
-  if (gruppi.length === 0) {
+  if (groups.length === 0) {
     await interaction.reply({
-      content: "🎂 Nessun compleanno salvato ancora in questo server. Usa `/birthday add` per aggiungere il tuo!",
+      content: "🎂 No birthdays saved yet in this server. Use `/birthday add` to add yours!",
       ephemeral: true,
     });
     return;
   }
 
   const embed = new EmbedBuilder()
-    .setColor(COLORE_EMBED)
-    .setTitle(`🎂 Prossimi compleanni — ${interaction.guild.name}`)
+    .setColor(EMBED_COLOR)
+    .setTitle(`🎂 Upcoming birthdays — ${interaction.guild.name}`)
     .setFooter({
-      text: `Richiesto da ${interaction.user.username}`,
+      text: `Requested by ${interaction.user.username}`,
       iconURL: interaction.user.displayAvatarURL(),
     });
 
-  const iconaServer = interaction.guild.iconURL();
-  if (iconaServer) embed.setThumbnail(iconaServer);
+  const guildIcon = interaction.guild.iconURL();
+  if (guildIcon) embed.setThumbnail(guildIcon);
 
-  for (const gruppo of gruppi) {
-    const righe = gruppo.entries.map(
-      (e, i) => `${i + 1}. ${formattaData(e.date)} - <@${e.userId}> - ${formattaGiorniMancanti(e.daysUntil)}`
+  for (const group of groups) {
+    const lines = group.entries.map(
+      (e, i) => `${i + 1}. ${formatDate(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
     );
 
     embed.addFields({
-      name: gruppo.monthLabel,
-      value: tronca(righe.join('\n'), LUNGHEZZA_MASSIMA_CAMPO),
+      name: group.monthLabel,
+      value: truncate(lines.join('\n'), MAX_FIELD_LENGTH),
     });
   }
 

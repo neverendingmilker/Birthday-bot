@@ -1,20 +1,20 @@
 const repo = require('./birthdayRepository');
 
-const GIORNI_PER_MESE = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // febbraio con margine bisestile
+const DAYS_PER_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // Feb allows the leap-year margin
 
 class ValidationError extends Error {}
 
 function validateDate(day, month, year) {
   if (month < 1 || month > 12) {
-    throw new ValidationError('Il mese deve essere un numero tra 1 e 12.');
+    throw new ValidationError('Month must be a number between 1 and 12.');
   }
-  if (day < 1 || day > GIORNI_PER_MESE[month - 1]) {
-    throw new ValidationError(`Giorno non valido per il mese selezionato.`);
+  if (day < 1 || day > DAYS_PER_MONTH[month - 1]) {
+    throw new ValidationError('Invalid day for the selected month.');
   }
   if (year !== null && year !== undefined) {
     const currentYear = new Date().getFullYear();
     if (year < 1900 || year > currentYear) {
-      throw new ValidationError('Anno non valido.');
+      throw new ValidationError('Invalid year.');
     }
   }
 }
@@ -38,7 +38,7 @@ async function setBirthdayRole(guildId, roleId) {
 
 async function setRemoveAfterHours(guildId, hours) {
   if (!Number.isInteger(hours) || hours < 1 || hours > 24 * 30) {
-    throw new ValidationError('Il timer deve essere un numero intero di ore tra 1 e 720 (30 giorni).');
+    throw new ValidationError('The timer must be a whole number of hours between 1 and 720 (30 days).');
   }
   await repo.setRemoveAfterHours(guildId, hours);
 }
@@ -47,17 +47,17 @@ async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
 
-const MESI_IT = [
-  'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre',
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 function isLeapYear(year) {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-// Calcola la prossima data in cui cade il compleanno (oggi compreso) e quanti giorni mancano.
-// Il 29 febbraio, negli anni non bisestili, viene festeggiato il 28.
+// Computes the next date on which a birthday falls (today included) and how many days are left.
+// February 29th, on non-leap years, is celebrated on the 28th.
 function nextOccurrence(day, month, today) {
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -75,8 +75,8 @@ function nextOccurrence(day, month, today) {
   return { date: candidate, daysUntil };
 }
 
-// Tutti i compleanni del server, ordinati dal prossimo in arrivo e raggruppati per mese
-// (il mese e' quello della PROSSIMA occorrenza, per gestire correttamente il cambio d'anno).
+// All birthdays in a guild, sorted by the soonest upcoming and grouped by month
+// (the month of the NEXT occurrence, so the year rollover is handled correctly).
 async function getUpcomingBirthdaysGroupedByMonth(guildId, today = new Date()) {
   const rows = await repo.getAllBirthdaysInGuild(guildId);
 
@@ -93,7 +93,7 @@ async function getUpcomingBirthdaysGroupedByMonth(guildId, today = new Date()) {
   for (const entry of withDates) {
     const key = `${entry.date.getFullYear()}-${entry.date.getMonth()}`;
     if (key !== currentKey) {
-      groups.push({ monthLabel: MESI_IT[entry.date.getMonth()], entries: [] });
+      groups.push({ monthLabel: MONTH_NAMES[entry.date.getMonth()], entries: [] });
       currentKey = key;
     }
     groups[groups.length - 1].entries.push(entry);
@@ -111,6 +111,6 @@ module.exports = {
   setRemoveAfterHours,
   getGuildConfig,
   getUpcomingBirthdaysGroupedByMonth,
-  // esposti per lo scheduler
+  // exposed for the scheduler
   repo,
 };

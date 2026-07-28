@@ -4,18 +4,18 @@ const birthdayManager = require('../../../features/birthday/birthdayManager');
 async function handleRemoveRole(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
     await interaction.reply({
-      content: '❌ Ti serve il permesso "Gestisci Ruoli" per usare questo comando.',
+      content: '❌ You need the "Manage Roles" permission to use this command.',
       ephemeral: true,
     });
     return;
   }
 
-  const ore = interaction.options.getInteger('timer');
+  const hours = interaction.options.getInteger('timer');
 
   try {
-    await birthdayManager.setRemoveAfterHours(interaction.guildId, ore);
+    await birthdayManager.setRemoveAfterHours(interaction.guildId, hours);
     await interaction.reply({
-      content: `✅ Il ruolo compleanno verra' rimosso dopo **${ore} ore**.`,
+      content: `✅ The birthday role will now be removed after **${hours} hours**.`,
       ephemeral: true,
     });
   } catch (err) {

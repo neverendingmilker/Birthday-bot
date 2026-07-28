@@ -2,7 +2,7 @@ const { createClient } = require('@libsql/client');
 const config = require('../config/config');
 
 if (!config.turso.url || !config.turso.authToken) {
-  console.error('❌ TURSO_DATABASE_URL e TURSO_AUTH_TOKEN devono essere impostati (dashboard turso.tech).');
+  console.error('❌ TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be set (turso.tech dashboard).');
   process.exit(1);
 }
 
@@ -11,11 +11,11 @@ const client = createClient({
   authToken: config.turso.authToken,
 });
 
-// --- Schema base, condiviso da tutte le funzioni del bot ---
-// Ogni "funzione" (feature) del bot ha le sue tabelle, create qui in modo esplicito
-// cosi' e' facile vedere tutto lo schema in un unico posto quando si aggiungono nuove feature.
-// La creazione e' asincrona (Turso parla HTTP): "ready" va atteso prima di ogni query,
-// cosa che fa gia' la repository di ogni feature.
+// --- Base schema, shared by all of the bot's features ---
+// Each "feature" of the bot has its own tables, created here explicitly so the
+// whole schema is easy to see in one place when adding new features.
+// Creation is asynchronous (Turso talks HTTP): "ready" must be awaited before any
+// query, which every feature's repository already does.
 const ready = client.batch(
   [
     `CREATE TABLE IF NOT EXISTS birthday_guild_config (
@@ -40,9 +40,9 @@ const ready = client.batch(
     )`,
   ],
   'write'
-).then(() => console.log('[db] Schema Turso pronto.'))
+).then(() => console.log('[db] Turso schema ready.'))
   .catch((err) => {
-    console.error('[db] Errore inizializzando lo schema su Turso:', err);
+    console.error('[db] Error initializing the Turso schema:', err);
     process.exit(1);
   });
 

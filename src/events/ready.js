@@ -1,13 +1,13 @@
 const birthdayScheduler = require('../features/birthday/birthdayScheduler');
 
 module.exports = {
-  name: 'clientReady', // rinominato da 'ready': in discord.js v15 sara' l'unico nome disponibile
+  name: 'clientReady', // renamed from 'ready': in discord.js v15 this will be the only name available
   once: true,
   execute(client) {
-    console.log(`✅ Bot online come ${client.user.tag}`);
+    console.log(`✅ Bot online as ${client.user.tag}`);
 
-    // Ogni feature che ha bisogno di job periodici si registra qui.
-    // Aggiungendo nuove funzioni in futuro, basta aggiungere una riga qui.
+    // Every feature that needs periodic jobs registers itself here.
+    // When adding new features in the future, just add a line here.
     birthdayScheduler.start(client);
   },
 };

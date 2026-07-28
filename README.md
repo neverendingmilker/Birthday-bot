@@ -1,67 +1,68 @@
-# Discord Bot Modulare
+# Modular Discord Bot
 
-Bot Discord con architettura a "compartimenti separati": ogni funzione (feature) ha la sua cartella con comandi, logica di business e accesso ai dati, completamente indipendente dalle altre.
+Discord bot with a "separate compartments" architecture: each feature has its own folder with commands, business logic, and data access, fully independent from the others.
 
-## Architettura
+## Architecture
 
 ```
 src/
-  commands/         <- Livello "Discord": definizione degli slash command
+  commands/         <- "Discord" layer: slash command definitions
     birthday/
-      index.js       (definisce /birthday e le sue subcommand, chiama gli handler)
+      index.js       (defines /birthday and its subcommands, calls the handlers)
       handlers/
         add.js
         role.js
         removerole.js
-  features/         <- Livello "Business logic": una cartella per feature
+        list.js
+  features/         <- "Business logic" layer: one folder per feature
     birthday/
-      birthdayManager.js     (validazioni e regole)
-      birthdayRepository.js  (query SQL)
-      birthdayScheduler.js   (cron job: assegna/rimuove il ruolo)
+      birthdayManager.js     (validation and rules)
+      birthdayRepository.js  (SQL queries)
+      birthdayScheduler.js   (cron job: assigns/removes the role)
   database/
-    db.js           <- connessione al database Turso, schema di tutte le feature
-  events/           <- eventi Discord (ready, interactionCreate...)
-  utils/            <- loader automatici di comandi ed eventi
+    db.js           <- Turso database connection, schema for all features
+  events/           <- Discord events (clientReady, interactionCreate...)
+  utils/            <- automatic loaders for commands and events
   config/
-    config.js       <- lettura delle variabili d'ambiente
+    config.js       <- reads environment variables
   index.js          <- entry point
-  deploy-commands.js<- script per registrare gli slash command
+  deploy-commands.js<- script to register slash commands
 ```
 
-Per aggiungere una **nuova funzione** in futuro (es. moderazione, welcome message, ecc.):
-1. Crea `src/features/nomefeature/` con la sua logica e le sue tabelle in `db.js`.
-2. Crea `src/commands/nomefeature/index.js` con `{ data, execute }` (viene caricato automaticamente, non serve registrarlo a mano).
-3. Se serve un job periodico, crea uno scheduler e aggiungilo in `src/events/ready.js`.
+To add a **new feature** in the future (e.g. moderation, welcome messages, etc.):
+1. Create `src/features/featurename/` with its logic and its tables in `db.js`.
+2. Create `src/commands/featurename/index.js` exporting `{ data, execute }` (it's loaded automatically, no manual registration needed).
+3. If it needs a periodic job, create a scheduler and hook it up in `src/events/ready.js`.
 
-Nessun file esistente va modificato per aggiungere una feature (tranne il collegamento facoltativo dello scheduler in `ready.js`).
+No existing file needs to change to add a feature (except the optional scheduler hookup in `ready.js`).
 
 ## Setup
 
-1. **Crea l'applicazione Discord**: vai su https://discord.com/developers/applications, crea una nuova app, vai su "Bot" e crea il bot, copia il **Token**. In "General Information" copia l'**Application ID** (= CLIENT_ID).
-2. Attiva l'intent privilegiato **Server Members Intent** in Bot -> Privileged Gateway Intents (serve per assegnare/rimuovere ruoli e leggere i membri).
-3. Genera il link di invito in OAuth2 -> URL Generator, scope `bot` + `applications.commands`, permessi almeno `Manage Roles`, `Send Messages`, `Use Application Commands`. Invita il bot nel tuo server.
-   - ⚠️ Il ruolo del bot deve stare **più in alto** nella lista dei ruoli rispetto al ruolo "compleanno", altrimenti non potrà assegnarlo/rimuoverlo.
-4. **Crea il database su Turso** (https://turso.tech, dashboard web, non serve nessun tool da installare): crea un account, crea un nuovo database, e dalla sua pagina copia la **Database URL** (inizia con `libsql://...`) e crea/copia un **Auth Token**.
-5. Copia `.env.example` in `.env` e compila `DISCORD_TOKEN`, `CLIENT_ID`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` (e opzionalmente `GUILD_ID` del tuo server per test istantanei).
-6. Installa le dipendenze:
+1. **Create the Discord application**: go to https://discord.com/developers/applications, create a new app, go to "Bot" and create the bot, copy the **Token**. In "General Information" copy the **Application ID** (= CLIENT_ID).
+2. Enable the privileged **Server Members Intent** in Bot -> Privileged Gateway Intents (needed to assign/remove roles and read members).
+3. Generate the invite link in OAuth2 -> URL Generator, scopes `bot` + `applications.commands`, permissions at least `Manage Roles`, `Send Messages`, `Use Application Commands`. Invite the bot to your server.
+   - ⚠️ The bot's role must be **higher** than the "birthday" role in the role list, otherwise it won't be able to assign/remove it.
+4. **Create the database on Turso** (https://turso.tech, web dashboard, nothing to install): create an account, create a new database, and from its page copy the **Database URL** (starts with `libsql://...`) and create/copy an **Auth Token**.
+5. Copy `.env.example` to `.env` and fill in `DISCORD_TOKEN`, `CLIENT_ID`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` (and optionally `GUILD_ID` for instant testing on your own server).
+6. Install dependencies:
    ```
    npm install
    ```
-7. Avvia il bot:
+7. Start the bot:
    ```
    npm start
    ```
-   (registra da solo gli slash command ad ogni avvio, e poi si connette a Discord)
+   (it registers the slash commands automatically on every start, then connects to Discord)
 
-## Comandi disponibili (feature: compleanni)
+## Available commands (birthday feature)
 
-- `/birthday add giorno:<1-31> mese:<1-12> [anno]` — chiunque può salvare il proprio compleanno.
-- `/birthday role ruolo:<@ruolo>` — **admin (permesso Gestisci Ruoli)**: imposta il ruolo da assegnare il giorno del compleanno.
-- `/birthday removerole timer:<ore>` — **admin**: imposta dopo quante ore rimuovere il ruolo (default 24).
-- `/birthday list` — mostra un embed con tutti i compleanni del server, divisi per mese e ordinati dal più vicino, con il conto alla rovescia in giorni per ciascuno.
+- `/birthday add day:<1-31> month:<1-12> [year]` — anyone can save their own birthday. If today happens to be that date, the birthday role is assigned right away.
+- `/birthday role role:<@role>` — **admin (Manage Roles permission)**: sets the role to assign on someone's birthday. Also checks the bot's role hierarchy and immediately assigns the role to anyone already celebrating today.
+- `/birthday removerole timer:<hours>` — **admin**: sets after how many hours to remove the role (default 24).
+- `/birthday list` — shows an embed with every birthday in the server, grouped by month and sorted by the soonest upcoming, with a day countdown for each.
 
-Ogni giorno a mezzanotte (fuso orario impostato in `TZ` nel `.env`) il bot controlla chi compie gli anni e assegna il ruolo automaticamente; un controllo periodico (ogni 5 minuti) rimuove il ruolo una volta scaduto il timer configurato.
+Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's celebrating and assigns the role automatically; a periodic check (every 5 minutes) removes the role once the configured timer has expired. The role is also assigned immediately (without waiting for midnight) whenever someone adds a birthday that happens to be today, or when an admin configures the role while someone is already celebrating.
 
 ## Hosting
 
-Il bot deve restare **connesso 24/7** (non è una webapp "a richiesta"), quindi va evitato un hosting che mette il processo in sleep dopo inattività senza un modo per "risvegliarlo". Il database è esterno (Turso), quindi i dati restano al sicuro indipendentemente da dove/come viene riavviato il processo del bot.
+The bot must stay **connected 24/7** (it's not an "on-demand" webapp), so avoid hosting that puts the process to sleep on inactivity without a way to "wake it up". The database is external (Turso), so the data stays safe no matter how/where the bot's process gets restarted.

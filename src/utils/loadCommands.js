@@ -2,9 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const { Collection } = require('discord.js');
 
-// Scansiona src/commands: ogni sottocartella (una per feature) deve avere un index.js
-// che esporta { data, execute }. In questo modo per aggiungere una nuova funzione al bot
-// basta creare una nuova cartella qui dentro, senza toccare il resto del codice.
+// Scans src/commands: every subfolder (one per feature) must have an index.js
+// exporting { data, execute }. This way, adding a new bot feature just means
+// creating a new folder here, with no changes to the rest of the code.
 function loadCommands() {
   const commands = new Collection();
   const commandsPath = path.join(__dirname, '..', 'commands');
@@ -20,7 +20,7 @@ function loadCommands() {
     const command = require(commandModulePath);
 
     if (!command.data || !command.execute) {
-      console.warn(`[loadCommands] La feature "${entry.name}" non esporta { data, execute }, saltata.`);
+      console.warn(`[loadCommands] Feature "${entry.name}" does not export { data, execute }, skipping.`);
       continue;
     }
 

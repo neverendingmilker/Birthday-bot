@@ -14,16 +14,16 @@ async function deploy() {
 
   console.log(
     config.guildId
-      ? `Registrazione di ${body.length} comandi sul server ${config.guildId} (istantanea)...`
-      : `Registrazione di ${body.length} comandi globalmente (fino a 1h per propagarsi)...`
+      ? `Registering ${body.length} command(s) on guild ${config.guildId} (instant)...`
+      : `Registering ${body.length} command(s) globally (can take up to 1h to propagate)...`
   );
 
   await rest.put(route, { body });
 
-  console.log('✅ Comandi registrati con successo.');
+  console.log('✅ Commands registered successfully.');
 }
 
 deploy().catch((err) => {
-  console.error('❌ Errore registrando i comandi:', err);
+  console.error('❌ Error registering commands:', err);
   process.exit(1);
 });

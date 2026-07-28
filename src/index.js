@@ -5,14 +5,14 @@ const { loadEvents } = require('./utils/loadEvents');
 const health = require('./health');
 
 if (!config.token || !config.clientId) {
-  console.error('❌ DISCORD_TOKEN e CLIENT_ID devono essere impostati nel file .env');
+  console.error('❌ DISCORD_TOKEN and CLIENT_ID must be set in the .env file');
   process.exit(1);
 }
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers, // necessario per assegnare/rimuovere ruoli e fare fetch dei membri
+    GatewayIntentBits.GuildMembers, // needed to assign/remove roles and fetch members
   ],
 });
 
@@ -21,6 +21,6 @@ loadEvents(client);
 
 client.login(config.token);
 
-// Nessuna dashboard: solo una paginetta di stato, per soddisfare il requisito di Render
-// (hosting configurato come "Web Service") di avere una porta HTTP aperta.
+// No dashboard: just a small status page, to satisfy Render's requirement
+// (hosting configured as a "Web Service") of having an open HTTP port.
 health.start(client);

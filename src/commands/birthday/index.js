@@ -6,43 +6,43 @@ const { handleList } = require('./handlers/list');
 
 const data = new SlashCommandBuilder()
   .setName('birthday')
-  .setDescription('Gestione compleanni')
+  .setDescription('Birthday management')
   .addSubcommand((sub) =>
     sub
       .setName('add')
-      .setDescription('Aggiungi (o aggiorna) il tuo compleanno')
+      .setDescription('Add (or update) your birthday')
       .addIntegerOption((opt) =>
-        opt.setName('giorno').setDescription('Giorno (1-31)').setMinValue(1).setMaxValue(31).setRequired(true)
+        opt.setName('day').setDescription('Day (1-31)').setMinValue(1).setMaxValue(31).setRequired(true)
       )
       .addIntegerOption((opt) =>
-        opt.setName('mese').setDescription('Mese (1-12)').setMinValue(1).setMaxValue(12).setRequired(true)
+        opt.setName('month').setDescription('Month (1-12)').setMinValue(1).setMaxValue(12).setRequired(true)
       )
       .addIntegerOption((opt) =>
-        opt.setName('anno').setDescription('Anno di nascita (facoltativo)').setRequired(false)
+        opt.setName('year').setDescription('Year of birth (optional)').setRequired(false)
       )
   )
   .addSubcommand((sub) =>
     sub
       .setName('role')
-      .setDescription('[Admin] Imposta il ruolo da assegnare il giorno del compleanno')
+      .setDescription('[Admin] Set the role to assign on someone\'s birthday')
       .addRoleOption((opt) =>
-        opt.setName('ruolo').setDescription('Ruolo da assegnare').setRequired(true)
+        opt.setName('role').setDescription('Role to assign').setRequired(true)
       )
   )
   .addSubcommand((sub) =>
     sub
       .setName('removerole')
-      .setDescription('[Admin] Imposta dopo quante ore rimuovere il ruolo compleanno')
+      .setDescription('[Admin] Set after how many hours to remove the birthday role')
       .addIntegerOption((opt) =>
         opt
           .setName('timer')
-          .setDescription('Numero di ore dopo le quali rimuovere il ruolo (default 24)')
+          .setDescription('Number of hours after which the role is removed (default 24)')
           .setMinValue(1)
           .setRequired(true)
       )
   )
   .addSubcommand((sub) =>
-    sub.setName('list').setDescription('Mostra tutti i compleanni del server, divisi per mese')
+    sub.setName('list').setDescription('Show all birthdays in this server, grouped by month')
   );
 
 async function execute(interaction) {
@@ -58,7 +58,7 @@ async function execute(interaction) {
     case 'list':
       return handleList(interaction);
     default:
-      return interaction.reply({ content: 'Subcommand sconosciuta.', ephemeral: true });
+      return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
   }
 }
 

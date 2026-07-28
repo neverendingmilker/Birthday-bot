@@ -2,48 +2,101 @@ const cron = require('node-cron');
 const config = require('../../config/config');
 const repo = require('./birthdayRepository');
 
-const ORE_IN_MS = 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
 
-async function assegnaRuoloCompleanno(client) {
-  const oggi = new Date();
-  const day = oggi.getDate();
-  const month = oggi.getMonth() + 1;
-  const year = oggi.getFullYear();
+function isToday(day, month, today = new Date()) {
+  return day === today.getDate() && month === today.getMonth() + 1;
+}
 
-  const festeggiati = await repo.getBirthdaysForToday(day, month);
+// Assigns the birthday role to a single user if today is their birthday and it hasn't
+// been assigned yet this year. Reusable both by the daily scheduler and by the slash
+// commands directly, so the role is assigned right away instead of waiting for next
+// year's cron run when today's midnight check has already passed.
+async function assignBirthdayRoleIfDue(client, guildId, userId, day, month) {
+  if (!isToday(day, month)) return { assigned: false, reason: 'not_today' };
 
-  for (const { guild_id: guildId, user_id: userId } of festeggiati) {
+  const year = new Date().getFullYear();
+  if (await repo.hasAssignmentThisYear(guildId, userId, year)) {
+    return { assigned: false, reason: 'already_assigned' };
+  }
+
+  const guildConfig = await repo.getGuildConfig(guildId);
+  if (!guildConfig.birthday_role_id) {
+    return { assigned: false, reason: 'no_role_configured' };
+  }
+
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return { assigned: false, reason: 'guild_not_found' };
+
+  const member = await guild.members.fetch(userId).catch(() => null);
+  if (!member) return { assigned: false, reason: 'member_not_found' };
+
+  const role = guild.roles.cache.get(guildConfig.birthday_role_id);
+  if (!role) return { assigned: false, reason: 'role_not_found' };
+
+  const botMember = guild.members.me;
+  if (!botMember || botMember.roles.highest.position <= role.position) {
+    return { assigned: false, reason: 'role_too_high' };
+  }
+
+  await member.roles.add(role);
+  await repo.recordRoleAssignment(guildId, userId, Date.now(), year);
+  return { assigned: true };
+}
+
+// Sweeps every birthday matching today's day/month, across all guilds the bot is in.
+async function assignAllDueToday(client) {
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth() + 1;
+
+  const celebrating = await repo.getBirthdaysForToday(day, month);
+
+  for (const { guild_id: guildId, user_id: userId } of celebrating) {
     try {
-      if (await repo.hasAssignmentThisYear(guildId, userId, year)) continue;
-
-      const guildConfig = await repo.getGuildConfig(guildId);
-      if (!guildConfig.birthday_role_id) continue; // nessun ruolo configurato in questo server
-
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) continue; // il bot non e' (piu') in questo server
-
-      const member = await guild.members.fetch(userId).catch(() => null);
-      if (!member) continue; // l'utente non e' (piu') nel server
-
-      await member.roles.add(guildConfig.birthday_role_id);
-      await repo.recordRoleAssignment(guildId, userId, Date.now(), year);
-      console.log(`[birthday] Ruolo assegnato a ${userId} nel server ${guildId}`);
+      const result = await assignBirthdayRoleIfDue(client, guildId, userId, day, month);
+      if (result.assigned) {
+        console.log(`[birthday] Assigned the role to ${userId} in guild ${guildId}`);
+      } else if (result.reason === 'role_too_high') {
+        console.warn(
+          `[birthday] Could not assign the role to ${userId} in guild ${guildId}: the bot's role is not high enough in the hierarchy.`
+        );
+      }
     } catch (err) {
-      console.error(`[birthday] Errore assegnando il ruolo a ${userId} (${guildId}):`, err);
+      console.error(`[birthday] Error assigning the role to ${userId} (${guildId}):`, err);
     }
   }
 }
 
-async function rimuoviRuoliScaduti(client) {
-  const assegnazioni = await repo.getAllActiveAssignments();
+// Same as assignAllDueToday, but scoped to a single guild. Used right after an admin
+// configures the birthday role, in case someone's birthday is already today.
+async function assignDueTodayForGuild(client, guildId) {
+  const today = new Date();
+  const day = today.getDate();
+  const month = today.getMonth() + 1;
+
+  const celebrating = (await repo.getBirthdaysForToday(day, month)).filter(
+    (row) => row.guild_id === guildId
+  );
+
+  const results = [];
+  for (const { user_id: userId } of celebrating) {
+    const result = await assignBirthdayRoleIfDue(client, guildId, userId, day, month);
+    results.push({ userId, ...result });
+  }
+  return results;
+}
+
+async function removeExpiredRoles(client) {
+  const assignments = await repo.getAllActiveAssignments();
   const now = Date.now();
 
-  for (const a of assegnazioni) {
+  for (const a of assignments) {
     try {
       const guildConfig = await repo.getGuildConfig(a.guild_id);
-      const scadenzaMs = guildConfig.remove_after_hours * ORE_IN_MS;
+      const expiryMs = guildConfig.remove_after_hours * MS_PER_HOUR;
 
-      if (now - a.assigned_at < scadenzaMs) continue; // non ancora scaduto
+      if (now - a.assigned_at < expiryMs) continue; // not due yet
 
       const guild = client.guilds.cache.get(a.guild_id);
       if (!guild) {
@@ -57,29 +110,29 @@ async function rimuoviRuoliScaduti(client) {
       }
 
       await repo.removeRoleAssignment(a.guild_id, a.user_id);
-      console.log(`[birthday] Ruolo rimosso a ${a.user_id} nel server ${a.guild_id}`);
+      console.log(`[birthday] Removed the role from ${a.user_id} in guild ${a.guild_id}`);
     } catch (err) {
-      console.error(`[birthday] Errore rimuovendo il ruolo a ${a.user_id} (${a.guild_id}):`, err);
+      console.error(`[birthday] Error removing the role from ${a.user_id} (${a.guild_id}):`, err);
     }
   }
 }
 
 function start(client) {
-  // Ogni giorno a mezzanotte, nel fuso orario configurato: assegna il ruolo a chi compie gli anni oggi
-  cron.schedule('0 0 * * *', () => assegnaRuoloCompleanno(client), {
+  // Every day at midnight, in the configured timezone: assign the role to today's birthdays
+  cron.schedule('0 0 * * *', () => assignAllDueToday(client), {
     timezone: config.timezone,
   });
 
-  // Ogni 5 minuti: controlla se qualche ruolo va rimosso (timer scaduto)
-  cron.schedule('*/5 * * * *', () => rimuoviRuoliScaduti(client), {
+  // Every 5 minutes: check whether any role assignment has expired
+  cron.schedule('*/5 * * * *', () => removeExpiredRoles(client), {
     timezone: config.timezone,
   });
 
-  // Controllo anche all'avvio, utile se il bot e' stato offline a mezzanotte
-  assegnaRuoloCompleanno(client);
-  rimuoviRuoliScaduti(client);
+  // Also run once at startup, useful if the bot was offline at midnight
+  assignAllDueToday(client);
+  removeExpiredRoles(client);
 
-  console.log('[birthday] Scheduler avviato.');
+  console.log('[birthday] Scheduler started.');
 }
 
-module.exports = { start };
+module.exports = { start, assignBirthdayRoleIfDue, assignAllDueToday, assignDueTodayForGuild };

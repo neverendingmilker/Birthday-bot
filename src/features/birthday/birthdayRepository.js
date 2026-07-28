@@ -1,6 +1,6 @@
 const db = require('../../database/db');
 
-// --- Config del server (ruolo compleanno + timer di rimozione) ---
+// --- Guild config (birthday role + removal timer) ---
 
 async function getGuildConfig(guildId) {
   await db.ready;
@@ -39,7 +39,7 @@ async function setRemoveAfterHours(guildId, hours) {
   });
 }
 
-// --- Compleanni utenti ---
+// --- User birthdays ---
 
 async function upsertBirthday(guildId, userId, day, month, year) {
   await db.ready;
@@ -69,7 +69,7 @@ async function deleteBirthday(guildId, userId) {
   });
 }
 
-// Tutti gli utenti che compiono gli anni oggi (day/month), su tutti i server
+// All users celebrating today (day/month), across every guild
 async function getBirthdaysForToday(day, month) {
   await db.ready;
   const result = await db.client.execute({
@@ -79,7 +79,7 @@ async function getBirthdaysForToday(day, month) {
   return result.rows;
 }
 
-// Tutti i compleanni salvati in UN server (usata da /birthday list)
+// All birthdays saved in ONE guild (used by /birthday list)
 async function getAllBirthdaysInGuild(guildId) {
   await db.ready;
   const result = await db.client.execute({
@@ -89,7 +89,7 @@ async function getAllBirthdaysInGuild(guildId) {
   return result.rows;
 }
 
-// --- Assegnazioni attive del ruolo compleanno (per sapere quando rimuoverlo) ---
+// --- Active birthday role assignments (to know when to remove them) ---
 
 async function recordRoleAssignment(guildId, userId, assignedAt, yearAssigned) {
   await db.ready;
