@@ -13,16 +13,26 @@ src/
         add.js
         role.js
         removerole.js
+        channel.js
         list.js
+    animenight/
+      index.js       (defines /animenight and its subcommands, calls the handlers)
+      handlers/
+        add.js
+        list.js
+        last.js
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
       birthdayRepository.js  (SQL queries)
-      birthdayScheduler.js   (cron job: assigns/removes the role)
+      birthdayScheduler.js   (cron job: assigns/removes the role, sends greetings)
+    animenight/
+      animeNightManager.js     (validation, title/date parsing, sorting)
+      animeNightRepository.js  (SQL queries)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
-  utils/            <- automatic loaders for commands and events
+  utils/            <- automatic loaders for commands and events, shared helpers (duration parsing)
   config/
     config.js       <- reads environment variables
   index.js          <- entry point
@@ -63,6 +73,12 @@ No existing file needs to change to add a feature (except the optional scheduler
 - `/birthday list` — shows an embed with every birthday in the server, grouped by month and sorted by the soonest upcoming, with a day countdown for each.
 
 Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's celebrating and assigns the role / posts the greeting automatically; a periodic check (every 10 seconds, to support the short timers above) removes the role once the configured timer has expired. The role and the greeting are also triggered immediately (without waiting for midnight) whenever someone adds a birthday that happens to be today, or when an admin configures the role/channel while someone is already celebrating. The role and the greeting are independent of each other — a server can use either, both, or neither.
+
+## Available commands (Mystery Anime Night feature)
+
+- `/animenight add titles:<...> [date]` — **admin (Manage Roles permission)**: adds one or more anime to the watched list. Separate multiple titles with a comma or a slash, e.g. `Naruto, One Piece / Bleach`. The optional `date` (DD/MM or DD/MM/YYYY) is applied to all titles added in that call; defaults to today if omitted.
+- `/animenight list [order]` — shows the full watch list as an embed. `order` can be `alphabetical` (default) or `date` (most recently watched first).
+- `/animenight last [count]` — shows only the most recently *added* entries (by insertion time, not watch date), regardless of which `/animenight add` call they came from. Defaults to 10, max 50.
 
 ## Hosting
 

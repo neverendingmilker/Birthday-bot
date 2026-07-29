@@ -47,6 +47,14 @@ async function createTables() {
         year_greeted INTEGER NOT NULL,
         PRIMARY KEY (guild_id, user_id)
       )`,
+      `CREATE TABLE IF NOT EXISTS anime_night_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        watched_date TEXT NOT NULL,
+        added_at INTEGER NOT NULL,
+        added_by TEXT
+      )`,
     ],
     'write'
   );
