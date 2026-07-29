@@ -21,6 +21,12 @@ const data = new SlashCommandBuilder()
       .addIntegerOption((opt) =>
         opt.setName('year').setDescription('Year of birth (optional)').setRequired(false)
       )
+      .addUserOption((opt) =>
+        opt
+          .setName('user')
+          .setDescription('[Admin only] Set the birthday for someone else instead of yourself')
+          .setRequired(false)
+      )
   )
   .addSubcommand((sub) =>
     sub
