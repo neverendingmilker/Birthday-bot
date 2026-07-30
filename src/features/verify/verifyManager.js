@@ -4,6 +4,46 @@ class ValidationError extends Error {}
 
 const TYPES = ['findom', 'sub'];
 
+// --- Role-based auto-verification (used by /verify check) ---
+// These are matched by role NAME (case-insensitive) against the roles the member
+// already holds on the server, not stored in the DB.
+const ROLE_NAMES = {
+  findomme: 'Findomme',
+  male: 'Male',
+  verifiedFindomme: 'Verified Findomme',
+  verifiedMaledomme: 'Verified Maledomme',
+  verifiedSub: 'Verified sub',
+  ageVerified: 'Age verified',
+};
+
+// The three "Verified" roles that /verify check can assign — used to know when
+// "Age verified" should follow along (added when one of these is gained, removed
+// when the member no longer holds any of them).
+const VERIFIED_ROLE_NAMES = [ROLE_NAMES.verifiedFindomme, ROLE_NAMES.verifiedMaledomme, ROLE_NAMES.verifiedSub];
+
+// Any one of these roles qualifies the member for "Verified sub".
+const SUB_TRIGGER_ROLES = ['Finsub', 'RT Slave', 'Switch', 'Gaming slave', 'Lurker'];
+
+// Given the list of role names a member currently holds, decides which "Verified"
+// role name applies to them, or null if none of the rules match.
+// Rules (checked in this order):
+//   1. Has BOTH Findomme and Male       -> Verified Maledomme
+//   2. Has Findomme (without Male)      -> Verified Findomme
+//   3. Has any of SUB_TRIGGER_ROLES     -> Verified sub
+function determineVerifiedRoleName(memberRoleNames) {
+  const lowerNames = memberRoleNames.map((n) => n.trim().toLowerCase());
+  const has = (name) => lowerNames.includes(name.trim().toLowerCase());
+
+  const hasFindomme = has(ROLE_NAMES.findomme);
+  const hasMale = has(ROLE_NAMES.male);
+  const hasSubTrigger = SUB_TRIGGER_ROLES.some((name) => has(name));
+
+  if (hasFindomme && hasMale) return ROLE_NAMES.verifiedMaledomme;
+  if (hasFindomme) return ROLE_NAMES.verifiedFindomme;
+  if (hasSubTrigger) return ROLE_NAMES.verifiedSub;
+  return null;
+}
+
 async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
@@ -16,8 +56,59 @@ async function setSubRole(guildId, roleId) {
   await repo.setSubRole(guildId, roleId);
 }
 
+async function setMaledommeRole(guildId, roleId) {
+  await repo.setMaledommeRole(guildId, roleId);
+}
+
 async function setVerifiedChannel(guildId, channelId) {
   await repo.setVerifiedChannel(guildId, channelId);
+}
+
+// --- Combo rules ("if a member has ALL of these roles, give them this role") ---
+// Matched by role ID, not by name — immune to emoji/whitespace/text differences in
+// role names, unlike the legacy name-based matching above.
+
+async function addComboRule(guildId, targetRoleId, triggerRoleIds, removeRoleId) {
+  if (!targetRoleId) {
+    throw new ValidationError('A target role is required.');
+  }
+  const uniqueTriggers = [...new Set((triggerRoleIds || []).filter(Boolean))];
+  if (uniqueTriggers.length === 0) {
+    throw new ValidationError('At least one trigger role is required.');
+  }
+  if (uniqueTriggers.includes(targetRoleId)) {
+    throw new ValidationError('The target role cannot also be one of the trigger roles.');
+  }
+  if (removeRoleId && removeRoleId === targetRoleId) {
+    throw new ValidationError('The role to remove cannot be the same as the target role.');
+  }
+  await repo.addComboRule(guildId, targetRoleId, uniqueTriggers, removeRoleId || null);
+}
+
+async function listComboRules(guildId) {
+  return repo.listComboRules(guildId);
+}
+
+async function deleteComboRule(guildId, id) {
+  const existing = await repo.getComboRule(guildId, id);
+  if (!existing) {
+    throw new ValidationError('No combo rule found with that ID in this server. Check `/verify comboroles list`.');
+  }
+  await repo.deleteComboRule(guildId, id);
+  return existing;
+}
+
+// Given the configured combo rules and the role IDs a member currently holds, picks the
+// best-matching rule (all of its trigger roles present), preferring the rule that requires
+// the most trigger roles (most specific wins) when several match. Returns null if none match.
+function determineComboRule(rules, memberRoleIds) {
+  const roleIdSet = new Set(memberRoleIds);
+  const matching = rules.filter((rule) => rule.trigger_role_ids.every((id) => roleIdSet.has(id)));
+  if (matching.length === 0) return null;
+
+  return matching.reduce((best, rule) =>
+    rule.trigger_role_ids.length > best.trigger_role_ids.length ? rule : best
+  );
 }
 
 // Records (or overwrites, if the user is re-verified) a verification entry.
@@ -67,10 +158,19 @@ async function editVerification(guildId, userId, type, socialInput, methodInput)
 
 module.exports = {
   ValidationError,
+  ROLE_NAMES,
+  SUB_TRIGGER_ROLES,
+  VERIFIED_ROLE_NAMES,
+  determineVerifiedRoleName,
   getGuildConfig,
   setFindomRole,
   setSubRole,
+  setMaledommeRole,
   setVerifiedChannel,
+  addComboRule,
+  listComboRules,
+  deleteComboRule,
+  determineComboRule,
   recordVerification,
   getVerification,
   editVerification,

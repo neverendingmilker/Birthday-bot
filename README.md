@@ -98,13 +98,31 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 All `/verify` subcommands require the **Manage Roles** permission.
 
-- `/verify roles [findom] [sub]` — sets the role assigned by `/verify findom` and/or `/verify sub`. Provide either or both.
+- `/verify roles [findom] [sub] [maledomme]` — sets the role assigned by `/verify findom` and/or `/verify sub`, and/or the role `/verify check` assigns when a user has both **Male** and **Findomme** (the "Verified Maledomme" case). Provide any combination of the three.
 - `/verify channel channel:<#channel>` — sets the text channel where verification reports are posted.
 - `/verify findom user:<@user> method:<...> [social]` — verifies someone as Findom: assigns the configured Findom role and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
 - `/verify sub user:<@user> method:<...> [social]` — same as above, but assigns the Sub role and posts a "Sub Verification" report instead.
 - `/verify edit user:<@user> type:<Findom|Sub> [social] [method]` — edits the Social and/or Method of an existing verification. If the original report message can still be found, it's edited in place to match; otherwise you're told the record was updated but the message couldn't be found.
 
 Running `/verify findom` or `/verify sub` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
+
+- `/verify check user:<@user>` — **admin**: looks at the roles the user already holds and auto-assigns a "target" role based on rules. There are two rule systems, tried in this order:
+
+  **1. Combo rules (recommended)** — if the server has at least one rule configured via `/verify comboroles`, only these are used:
+  - `/verify comboroles add target:<@role> role1:<@role> [role2] [role3] [role4] [role5] [remove:<@role>]` — creates a rule: a member holding **all** of `role1..role5` gets `target`. `remove` is optional — a role to strip from the member once this rule matches (e.g. remove "Findomme" once "Verified Findomme" is granted).
+  - `/verify comboroles list` — lists configured rules with their IDs.
+  - `/verify comboroles remove id:<number>` — deletes a rule by the ID shown in `list`.
+
+  Roles are picked directly from Discord's role picker and matched by **ID**, not by name — so emoji, spaces, or special characters in a role's name never cause a mismatch (this is what replaced the old name-based Findomme/Male detection, which could silently fail on roles like "💰 Findomme"). If several rules match the same user, the one requiring the most roles wins (e.g. a "Findomme + Male" rule beats a plain "Findomme" rule). All configured target roles are kept mutually exclusive automatically.
+
+  **2. Legacy name-based rules** — only used as a fallback while a server has **zero** combo rules configured:
+  1. Has both **Male** and **Findomme** → assigns **Verified Maledomme**
+  2. Has **Findomme** (without Male) → assigns **Verified Findomme**
+  3. Has any of **Finsub**, **RT Slave**, **Switch**, **Gaming slave**, **Lurker** → assigns **Verified sub**
+
+  Role names are matched case-insensitively and must already exist on the server — **except** for the Maledomme case, which uses the role set via `/verify roles maledomme:<role>` when configured (falling back to a role literally named "Verified Maledomme" if not). This path is the one that breaks on emoji-decorated role names — set up `/verify comboroles` instead if you hit that.
+
+  Both paths share the same side effects: the resulting "Verified" roles are kept mutually exclusive; when the outcome is Verified Findomme or Verified Maledomme (legacy path) or via a rule's `remove` option (combo path), the linked role is stripped from the user; and whenever the user ends up holding any target/Verified role, "Age verified" is added (removed once they hold none). This command never posts a report to the verification channel or touches the `/verify findom`/`sub` records. The bot's role must be higher than every role it needs to touch.
 
 ## Hosting
 
