@@ -15,23 +15,16 @@ async function getGuildConfig(guildId) {
         guild_id: row.guild_id,
         findom_role_id: row.findom_role_id,
         sub_role_id: row.sub_role_id,
-        maledomme_role_id: row.maledomme_role_id,
         verified_channel_id: row.verified_channel_id,
       }
-    : {
-        guild_id: guildId,
-        findom_role_id: null,
-        sub_role_id: null,
-        maledomme_role_id: null,
-        verified_channel_id: null,
-      };
+    : { guild_id: guildId, findom_role_id: null, sub_role_id: null, verified_channel_id: null };
 }
 
 async function setFindomRole(guildId, roleId) {
   await db.ready;
   await db.client.execute({
-    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, maledomme_role_id, verified_channel_id)
-          VALUES (?, ?, NULL, NULL, NULL)
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, ?, NULL, NULL)
           ON CONFLICT(guild_id) DO UPDATE SET findom_role_id = excluded.findom_role_id`,
     args: [guildId, roleId],
   });
@@ -40,19 +33,9 @@ async function setFindomRole(guildId, roleId) {
 async function setSubRole(guildId, roleId) {
   await db.ready;
   await db.client.execute({
-    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, maledomme_role_id, verified_channel_id)
-          VALUES (?, NULL, ?, NULL, NULL)
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, NULL, ?, NULL)
           ON CONFLICT(guild_id) DO UPDATE SET sub_role_id = excluded.sub_role_id`,
-    args: [guildId, roleId],
-  });
-}
-
-async function setMaledommeRole(guildId, roleId) {
-  await db.ready;
-  await db.client.execute({
-    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, maledomme_role_id, verified_channel_id)
-          VALUES (?, NULL, NULL, ?, NULL)
-          ON CONFLICT(guild_id) DO UPDATE SET maledomme_role_id = excluded.maledomme_role_id`,
     args: [guildId, roleId],
   });
 }
@@ -60,8 +43,8 @@ async function setMaledommeRole(guildId, roleId) {
 async function setVerifiedChannel(guildId, channelId) {
   await db.ready;
   await db.client.execute({
-    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, maledomme_role_id, verified_channel_id)
-          VALUES (?, NULL, NULL, NULL, ?)
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, NULL, NULL, ?)
           ON CONFLICT(guild_id) DO UPDATE SET verified_channel_id = excluded.verified_channel_id`,
     args: [guildId, channelId],
   });
@@ -107,7 +90,6 @@ module.exports = {
   getGuildConfig,
   setFindomRole,
   setSubRole,
-  setMaledommeRole,
   setVerifiedChannel,
   upsertVerification,
   getVerification,

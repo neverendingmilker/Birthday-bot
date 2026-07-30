@@ -12,11 +12,10 @@ async function handleRoles(interaction) {
 
   const findomRole = interaction.options.getRole('findom');
   const subRole = interaction.options.getRole('sub');
-  const maledommeRole = interaction.options.getRole('maledomme');
 
-  if (!findomRole && !subRole && !maledommeRole) {
+  if (!findomRole && !subRole) {
     await interaction.reply({
-      content: '⚠️ Provide at least one role to set (`findom`, `sub` and/or `maledomme`).',
+      content: '⚠️ Provide at least one role to set (`findom` and/or `sub`).',
       ephemeral: true,
     });
     return;
@@ -31,10 +30,6 @@ async function handleRoles(interaction) {
   if (subRole) {
     await verifyManager.setSubRole(interaction.guildId, subRole.id);
     updates.push(`Sub role set to ${subRole}`);
-  }
-  if (maledommeRole) {
-    await verifyManager.setMaledommeRole(interaction.guildId, maledommeRole.id);
-    updates.push(`Maledomme role set to ${maledommeRole}`);
   }
 
   await interaction.reply({ content: `✅ ${updates.join('\n✅ ')}`, ephemeral: true });

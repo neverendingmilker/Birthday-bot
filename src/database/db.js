@@ -59,7 +59,6 @@ async function createTables() {
         guild_id TEXT PRIMARY KEY,
         findom_role_id TEXT,
         sub_role_id TEXT,
-        maledomme_role_id TEXT,
         verified_channel_id TEXT
       )`,
       `CREATE TABLE IF NOT EXISTS verify_entries (
@@ -103,13 +102,6 @@ async function migrate() {
   await client.execute(
     'UPDATE birthday_guild_config SET remove_after_seconds = 86400 WHERE remove_after_seconds IS NULL'
   );
-
-  const verifyColumns = await client.execute('PRAGMA table_info(verify_guild_config)');
-  const verifyColumnNames = verifyColumns.rows.map((row) => row.name);
-
-  if (!verifyColumnNames.includes('maledomme_role_id')) {
-    await client.execute('ALTER TABLE verify_guild_config ADD COLUMN maledomme_role_id TEXT');
-  }
 }
 
 const ready = createTables()
