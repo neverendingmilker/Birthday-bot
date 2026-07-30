@@ -55,6 +55,24 @@ async function createTables() {
         added_at INTEGER NOT NULL,
         added_by TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS verify_guild_config (
+        guild_id TEXT PRIMARY KEY,
+        findom_role_id TEXT,
+        sub_role_id TEXT,
+        verified_channel_id TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS verify_entries (
+        guild_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        social TEXT,
+        method TEXT NOT NULL,
+        verified_at INTEGER NOT NULL,
+        verified_by TEXT NOT NULL,
+        channel_id TEXT,
+        message_id TEXT,
+        PRIMARY KEY (guild_id, user_id, type)
+      )`,
     ],
     'write'
   );

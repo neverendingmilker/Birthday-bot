@@ -2,6 +2,8 @@ const { SlashCommandBuilder } = require('discord.js');
 const { handleAdd } = require('./handlers/add');
 const { handleList } = require('./handlers/list');
 const { handleLast } = require('./handlers/last');
+const { handleEdit } = require('./handlers/edit');
+const animeNightManager = require('../../features/animenight/animeNightManager');
 
 const data = new SlashCommandBuilder()
   .setName('animenight')
@@ -19,7 +21,7 @@ const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName('date')
-          .setDescription('Date watched, DD/MM or DD/MM/YYYY (default: today)')
+          .setDescription('Date watched: DD/MM, DD/MM/YYYY, "today" or "yesterday" (default: today)')
           .setRequired(false)
       )
   )
@@ -30,24 +32,38 @@ const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName('order')
-          .setDescription('Sort order (default: alphabetical)')
+          .setDescription('How to sort titles within each session (default: alphabetical)')
           .addChoices(
             { name: 'Alphabetical', value: 'alphabetical' },
-            { name: 'Date watched', value: 'date' }
+            { name: 'Order added', value: 'added' }
           )
           .setRequired(false)
       )
   )
   .addSubcommand((sub) =>
+    sub.setName('last').setDescription('Show the anime from the most recent Mystery Anime Night session')
+  )
+  .addSubcommand((sub) =>
     sub
-      .setName('last')
-      .setDescription('Show only the most recently added anime')
-      .addIntegerOption((opt) =>
+      .setName('edit')
+      .setDescription('[Admin] Edit an existing Mystery Anime Night session')
+      .addStringOption((opt) =>
         opt
-          .setName('count')
-          .setDescription('How many to show (default 10, max 50)')
-          .setMinValue(1)
-          .setMaxValue(50)
+          .setName('session')
+          .setDescription('Which session to edit (start typing to search)')
+          .setRequired(true)
+          .setAutocomplete(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('titles')
+          .setDescription('New anime list for this session, replaces the old one. Separate with , or /')
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('date')
+          .setDescription('New date for this session: DD/MM, DD/MM/YYYY, "today" or "yesterday"')
           .setRequired(false)
       )
   );
@@ -62,9 +78,31 @@ async function execute(interaction) {
       return handleList(interaction);
     case 'last':
       return handleLast(interaction);
+    case 'edit':
+      return handleEdit(interaction);
     default:
       return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
   }
 }
 
-module.exports = { data, execute };
+// Powers the "session" option's autocomplete on /animenight edit: as the admin types,
+// suggest matching sessions (e.g. "Mystery Anime Night 3 — 23/10/2026 (5 anime)").
+async function autocomplete(interaction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name !== 'session') {
+    await interaction.respond([]);
+    return;
+  }
+
+  const sessions = await animeNightManager.getSessionsList(interaction.guildId);
+  const query = focused.value.toLowerCase();
+
+  const filtered = sessions
+    .filter((s) => s.label.toLowerCase().includes(query))
+    .slice(-25) // Discord allows at most 25 suggestions
+    .reverse(); // show the most recent sessions first
+
+  await interaction.respond(filtered.map((s) => ({ name: s.label, value: s.date })));
+}
+
+module.exports = { data, execute, autocomplete };

@@ -23,15 +23,28 @@ function formatDisplayDate(isoDate) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-// Accepts "DD/MM" or "DD/MM/YYYY"; defaults to today if nothing is given.
+// Accepts "DD/MM" or "DD/MM/YYYY", or the words "today"/"yesterday"; defaults to
+// today if nothing is given at all.
 function parseWatchedDate(dateInput) {
-  if (!dateInput) {
+  if (!dateInput || !dateInput.trim()) {
     return formatISODate(new Date());
+  }
+
+  const normalized = dateInput.trim().toLowerCase();
+  if (normalized === 'today') {
+    return formatISODate(new Date());
+  }
+  if (normalized === 'yesterday') {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return formatISODate(yesterday);
   }
 
   const match = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/.exec(dateInput.trim());
   if (!match) {
-    throw new ValidationError('Invalid date format. Use DD/MM or DD/MM/YYYY, e.g. 23/10 or 23/10/2026.');
+    throw new ValidationError(
+      'Invalid date format. Use DD/MM, DD/MM/YYYY, "today" or "yesterday" — e.g. 23/10, 23/10/2026, today.'
+    );
   }
 
   const day = parseInt(match[1], 10);
@@ -78,10 +91,66 @@ async function getLast(guildId, count) {
   return repo.getLastEntries(guildId, count);
 }
 
+// A "session" is every anime that shares the same watched_date (e.g. "Mystery Anime
+// Night 3"). Session numbers are NOT stored: they're computed on the fly from the
+// chronological order of distinct dates, so they always stay correct even if a
+// session's date is later edited/moved.
+async function getSessionsList(guildId) {
+  const rows = await repo.getAllEntries(guildId);
+
+  const byDate = new Map();
+  for (const row of rows) {
+    if (!byDate.has(row.watched_date)) byDate.set(row.watched_date, []);
+    byDate.get(row.watched_date).push(row.title);
+  }
+
+  const sortedDates = [...byDate.keys()].sort(); // ISO "YYYY-MM-DD" sorts chronologically as-is
+
+  return sortedDates.map((date, i) => {
+    const titles = byDate.get(date);
+    return {
+      number: i + 1,
+      date,
+      titles,
+      label: `Mystery Anime Night ${i + 1} — ${formatDisplayDate(date)} (${titles.length} anime)`,
+    };
+  });
+}
+
+// Edits an existing session: replaces its anime list, moves it to a new date, or both.
+// At least one of newTitlesRaw / newDateInput must be given.
+async function editSession(guildId, sessionDate, newTitlesRaw, newDateInput, editedBy) {
+  if (!newTitlesRaw && !newDateInput) {
+    throw new ValidationError('Provide at least a new list of titles or a new date to change.');
+  }
+
+  const existing = await repo.getEntriesForDate(guildId, sessionDate);
+  if (existing.length === 0) {
+    throw new ValidationError("That session doesn't exist (it may have just been edited or removed).");
+  }
+
+  const finalDate = newDateInput ? parseWatchedDate(newDateInput) : sessionDate;
+
+  if (newTitlesRaw) {
+    const titles = splitTitles(newTitlesRaw);
+    if (titles.length === 0) {
+      throw new ValidationError('No valid anime titles found. Separate multiple titles with a comma or a slash.');
+    }
+    await repo.replaceSession(guildId, sessionDate, finalDate, titles, editedBy);
+    return { titles, date: finalDate };
+  }
+
+  // Only the date is changing: keep the existing titles untouched.
+  await repo.updateSessionDate(guildId, sessionDate, finalDate);
+  return { titles: existing.map((e) => e.title), date: finalDate };
+}
+
 module.exports = {
   ValidationError,
   addAnime,
   getSortedList,
   getLast,
+  getSessionsList,
+  editSession,
   formatDisplayDate,
 };

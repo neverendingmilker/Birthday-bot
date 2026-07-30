@@ -16,23 +16,36 @@ src/
         channel.js
         list.js
     animenight/
-      index.js       (defines /animenight and its subcommands, calls the handlers)
+      index.js       (defines /animenight and its subcommands + autocomplete, calls the handlers)
       handlers/
         add.js
         list.js
         last.js
+        edit.js
+    verify/
+      index.js       (defines /verify and its subcommands, calls the handlers)
+      handlers/
+        findom.js
+        sub.js
+        edit.js
+        roles.js
+        channel.js
+        verifyAction.js (shared helper used by findom.js and sub.js, not a subcommand itself)
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
       birthdayRepository.js  (SQL queries)
       birthdayScheduler.js   (cron job: assigns/removes the role, sends greetings)
     animenight/
-      animeNightManager.js     (validation, title/date parsing, sorting)
+      animeNightManager.js     (validation, title/date parsing, sessions, sorting)
       animeNightRepository.js  (SQL queries)
+    verify/
+      verifyManager.js     (validation and rules)
+      verifyRepository.js  (SQL queries)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
-  utils/            <- automatic loaders for commands and events, shared helpers (duration parsing)
+  utils/            <- automatic loaders for commands and events, shared helpers (duration parsing, pagination)
   config/
     config.js       <- reads environment variables
   index.js          <- entry point
@@ -76,9 +89,22 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 ## Available commands (Mystery Anime Night feature)
 
-- `/animenight add titles:<...> [date]` — **admin (Manage Roles permission)**: adds one or more anime to the watched list. Separate multiple titles with a comma or a slash, e.g. `Naruto, One Piece / Bleach`. The optional `date` (DD/MM or DD/MM/YYYY) is applied to all titles added in that call; defaults to today if omitted.
-- `/animenight list [order]` — shows the full watch list as an embed. `order` can be `alphabetical` (default) or `date` (most recently watched first).
-- `/animenight last [count]` — shows only the most recently *added* entries (by insertion time, not watch date), regardless of which `/animenight add` call they came from. Defaults to 10, max 50.
+- `/animenight add titles:<...> [date]` — **admin (Manage Roles permission)**: adds one or more anime to the watched list. Separate multiple titles with a comma or a slash, e.g. `Naruto, One Piece / Bleach`. The optional `date` accepts `DD/MM`, `DD/MM/YYYY`, `today`, or `yesterday`; defaults to today if omitted entirely. Every distinct date is a "session" (e.g. "Mystery Anime Night 3"), numbered chronologically.
+- `/animenight list [order]` — shows the watch list as an embed **grouped by session** (10 sessions per page), paginated with ◀ Previous / Next ▶ buttons once there are more than 10. Sessions always appear in chronological order; `order` only controls how titles are sorted *within* each session — `alphabetical` (default) or `added` (the order they were added in).
+- `/animenight last` — shows every anime from the most recent Mystery Anime Night **session** (i.e. the latest distinct date), not just the last few inserted rows. Also paginated if that session has many entries.
+- `/animenight edit session:<...> [titles] [date]` — **admin**: edits an existing session. The `session` option has autocomplete — start typing and Discord suggests matching sessions (e.g. "Mystery Anime Night 3 — 23/10/2026 (5 anime)"), most recent first. Provide `titles` to replace the whole anime list for that session, `date` to move it to a different day (moving it onto an existing session's date merges the two), or both. Session numbers are computed dynamically from chronological order, so they stay correct even after edits.
+
+## Available commands (Verify feature)
+
+All `/verify` subcommands require the **Manage Roles** permission.
+
+- `/verify roles [findom] [sub]` — sets the role assigned by `/verify findom` and/or `/verify sub`. Provide either or both.
+- `/verify channel channel:<#channel>` — sets the text channel where verification reports are posted.
+- `/verify findom user:<@user> method:<...> [social]` — verifies someone as Findom: assigns the configured Findom role and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
+- `/verify sub user:<@user> method:<...> [social]` — same as above, but assigns the Sub role and posts a "Sub Verification" report instead.
+- `/verify edit user:<@user> type:<Findom|Sub> [social] [method]` — edits the Social and/or Method of an existing verification. If the original report message can still be found, it's edited in place to match; otherwise you're told the record was updated but the message couldn't be found.
+
+Running `/verify findom` or `/verify sub` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
 
 ## Hosting
 
