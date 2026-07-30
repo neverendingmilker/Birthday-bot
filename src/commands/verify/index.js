@@ -1,9 +1,7 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
-const { handleFindom } = require('./handlers/findom');
-const { handleSub } = require('./handlers/sub');
+const { handleManual } = require('./handlers/manual');
 const { handleEdit } = require('./handlers/edit');
-const { handleRoles } = require('./handlers/roles');
-const { handleChannel } = require('./handlers/channel');
+const { handleConfig } = require('./handlers/config');
 const { handleCheck } = require('./handlers/check');
 const {
   handleComboRolesAdd,
@@ -16,20 +14,15 @@ const data = new SlashCommandBuilder()
   .setDescription('User verification management')
   .addSubcommand((sub) =>
     sub
-      .setName('findom')
-      .setDescription('[Admin] Verify a user as Findom')
-      .addUserOption((opt) => opt.setName('user').setDescription('User to verify').setRequired(true))
+      .setName('manual')
+      .setDescription('[Admin] Verify a user as Findom or Sub')
       .addStringOption((opt) =>
-        opt.setName('method').setDescription('How the verification was done').setRequired(true)
+        opt
+          .setName('type')
+          .setDescription('Which kind of verification')
+          .setRequired(true)
+          .addChoices({ name: 'Findom', value: 'findom' }, { name: 'Sub', value: 'sub' })
       )
-      .addStringOption((opt) =>
-        opt.setName('social').setDescription('Social media / handle (optional)').setRequired(false)
-      )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('sub')
-      .setDescription('[Admin] Verify a user as Sub')
       .addUserOption((opt) => opt.setName('user').setDescription('User to verify').setRequired(true))
       .addStringOption((opt) =>
         opt.setName('method').setDescription('How the verification was done').setRequired(true)
@@ -57,37 +50,26 @@ const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub
-      .setName('roles')
-      .setDescription('[Admin] Set the roles assigned by /verify findom, /verify sub and /verify check')
+      .setName('config')
+      .setDescription('[Admin] Configure /verify manual roles and the report channel')
       .addRoleOption((opt) =>
         opt.setName('findom').setDescription('Role to assign for Findom verification').setRequired(false)
       )
       .addRoleOption((opt) =>
         opt.setName('sub').setDescription('Role to assign for Sub verification').setRequired(false)
       )
-      .addRoleOption((opt) =>
-        opt
-          .setName('maledomme')
-          .setDescription('Role /verify check assigns when a Findomme also has the Male role')
-          .setRequired(false)
-      )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('channel')
-      .setDescription('[Admin] Set the channel where verification reports are posted')
       .addChannelOption((opt) =>
         opt
           .setName('channel')
           .setDescription('Channel for verification reports')
           .addChannelTypes(ChannelType.GuildText)
-          .setRequired(true)
+          .setRequired(false)
       )
   )
   .addSubcommand((sub) =>
     sub
       .setName('check')
-      .setDescription("[Admin] Auto-assign the right Verified role based on the user's other roles")
+      .setDescription("[Admin] Auto-assign a role based on the user's other roles (see /verify comboroles)")
       .addUserOption((opt) => opt.setName('user').setDescription('User to check').setRequired(true))
   )
   .addSubcommandGroup((group) =>
@@ -142,16 +124,12 @@ async function execute(interaction) {
   }
 
   switch (sub) {
-    case 'findom':
-      return handleFindom(interaction);
-    case 'sub':
-      return handleSub(interaction);
+    case 'manual':
+      return handleManual(interaction);
     case 'edit':
       return handleEdit(interaction);
-    case 'roles':
-      return handleRoles(interaction);
-    case 'channel':
-      return handleChannel(interaction);
+    case 'config':
+      return handleConfig(interaction);
     case 'check':
       return handleCheck(interaction);
     default:

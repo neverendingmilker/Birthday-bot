@@ -11,9 +11,7 @@ src/
       index.js       (defines /birthday and its subcommands, calls the handlers)
       handlers/
         add.js
-        role.js
-        removerole.js
-        channel.js
+        config.js    (role + removal timer + greeting channel, merged into one subcommand)
         list.js
     animenight/
       index.js       (defines /animenight and its subcommands + autocomplete, calls the handlers)
@@ -23,14 +21,14 @@ src/
         last.js
         edit.js
     verify/
-      index.js       (defines /verify and its subcommands, calls the handlers)
+      index.js       (defines /verify, its subcommands and the comboroles subcommand group)
       handlers/
-        findom.js
-        sub.js
+        manual.js    (Findom/Sub verification, merged into one subcommand picked via `type`)
         edit.js
-        roles.js
-        channel.js
-        verifyAction.js (shared helper used by findom.js and sub.js, not a subcommand itself)
+        config.js    (Findom/Sub roles + report channel, merged into one subcommand)
+        check.js
+        comboroles.js
+        verifyAction.js (shared helper used by manual.js, not a subcommand itself)
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -80,9 +78,10 @@ No existing file needs to change to add a feature (except the optional scheduler
 ## Available commands (birthday feature)
 
 - `/birthday add day:<1-31> month:<1-12> [year] [user]` — anyone can save their own birthday. If today happens to be that date, the birthday role is assigned right away. The optional `user` option lets an **admin (Manage Roles permission)** set someone else's birthday instead of their own.
-- `/birthday role role:<@role>` — **admin (Manage Roles permission)**: sets the role to assign on someone's birthday. Also checks the bot's role hierarchy and immediately assigns the role to anyone already celebrating today.
-- `/birthday removerole timer:<duration>` — **admin**: sets after how long to remove the role. Accepts a number followed by a unit: `s` (seconds), `m` (minutes), `h` (hours), `d` (days) — e.g. `30s`, `10m`, `24h`, `3d`. Minimum 10 seconds, maximum 30 days, default 24h.
-- `/birthday channel channel:<#channel>` — **admin**: sets the text channel where automatic birthday greetings are posted. Also greets anyone already celebrating today, right away.
+- `/birthday config [role] [removeafter] [channel]` — **admin (Manage Roles permission)**: configures any combination of the three settings in one call:
+  - `role:<@role>` — the role to assign on someone's birthday. Also checks the bot's role hierarchy and immediately assigns the role to anyone already celebrating today.
+  - `removeafter:<duration>` — after how long to remove the role. Accepts a number followed by a unit: `s` (seconds), `m` (minutes), `h` (hours), `d` (days) — e.g. `30s`, `10m`, `24h`, `3d`. Minimum 10 seconds, maximum 30 days, default 24h.
+  - `channel:<#channel>` — the text channel where automatic birthday greetings are posted. Also greets anyone already celebrating today, right away.
 - `/birthday list` — shows an embed with every birthday in the server, grouped by month and sorted by the soonest upcoming, with a day countdown for each.
 
 Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's celebrating and assigns the role / posts the greeting automatically; a periodic check (every 10 seconds, to support the short timers above) removes the role once the configured timer has expired. The role and the greeting are also triggered immediately (without waiting for midnight) whenever someone adds a birthday that happens to be today, or when an admin configures the role/channel while someone is already celebrating. The role and the greeting are independent of each other — a server can use either, both, or neither.
@@ -98,31 +97,23 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 All `/verify` subcommands require the **Manage Roles** permission.
 
-- `/verify roles [findom] [sub] [maledomme]` — sets the role assigned by `/verify findom` and/or `/verify sub`, and/or the role `/verify check` assigns when a user has both **Male** and **Findomme** (the "Verified Maledomme" case). Provide any combination of the three.
-- `/verify channel channel:<#channel>` — sets the text channel where verification reports are posted.
-- `/verify findom user:<@user> method:<...> [social]` — verifies someone as Findom: assigns the configured Findom role and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
-- `/verify sub user:<@user> method:<...> [social]` — same as above, but assigns the Sub role and posts a "Sub Verification" report instead.
+- `/verify config [findom] [sub] [channel]` — configures any combination of:
+  - `findom:<@role>` — role assigned by `/verify manual type:Findom`.
+  - `sub:<@role>` — role assigned by `/verify manual type:Sub`.
+  - `channel:<#channel>` — text channel where verification reports are posted.
+- `/verify manual type:<Findom|Sub> user:<@user> method:<...> [social]` — verifies someone as Findom or Sub: assigns the configured role for that type and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
 - `/verify edit user:<@user> type:<Findom|Sub> [social] [method]` — edits the Social and/or Method of an existing verification. If the original report message can still be found, it's edited in place to match; otherwise you're told the record was updated but the message couldn't be found.
 
-Running `/verify findom` or `/verify sub` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
+Running `/verify manual` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
 
-- `/verify check user:<@user>` — **admin**: looks at the roles the user already holds and auto-assigns a "target" role based on rules. There are two rule systems, tried in this order:
-
-  **1. Combo rules (recommended)** — if the server has at least one rule configured via `/verify comboroles`, only these are used:
+- `/verify check user:<@user>` — **admin**: looks at the roles the user already holds and auto-assigns a role, based on the combo rules configured for the server via `/verify comboroles`:
   - `/verify comboroles add target:<@role> role1:<@role> [role2] [role3] [role4] [role5] [remove:<@role>]` — creates a rule: a member holding **all** of `role1..role5` gets `target`. `remove` is optional — a role to strip from the member once this rule matches (e.g. remove "Findomme" once "Verified Findomme" is granted).
   - `/verify comboroles list` — lists configured rules with their IDs.
   - `/verify comboroles remove id:<number>` — deletes a rule by the ID shown in `list`.
 
-  Roles are picked directly from Discord's role picker and matched by **ID**, not by name — so emoji, spaces, or special characters in a role's name never cause a mismatch (this is what replaced the old name-based Findomme/Male detection, which could silently fail on roles like "💰 Findomme"). If several rules match the same user, the one requiring the most roles wins (e.g. a "Findomme + Male" rule beats a plain "Findomme" rule). All configured target roles are kept mutually exclusive automatically.
+  Roles are picked directly from Discord's role picker and matched by **ID**, not by name — so emoji, spaces, or special characters in a role's name never cause a mismatch. If several rules match the same user, the one requiring the most roles wins (e.g. a "Findomme + Male" rule beats a plain "Findomme" rule). All configured target roles are kept mutually exclusive automatically — assigning one drops any other the member already had.
 
-  **2. Legacy name-based rules** — only used as a fallback while a server has **zero** combo rules configured:
-  1. Has both **Male** and **Findomme** → assigns **Verified Maledomme**
-  2. Has **Findomme** (without Male) → assigns **Verified Findomme**
-  3. Has any of **Finsub**, **RT Slave**, **Switch**, **Gaming slave**, **Lurker** → assigns **Verified sub**
-
-  Role names are matched case-insensitively and must already exist on the server — **except** for the Maledomme case, which uses the role set via `/verify roles maledomme:<role>` when configured (falling back to a role literally named "Verified Maledomme" if not). This path is the one that breaks on emoji-decorated role names — set up `/verify comboroles` instead if you hit that.
-
-  Both paths share the same side effects: the resulting "Verified" roles are kept mutually exclusive; when the outcome is Verified Findomme or Verified Maledomme (legacy path) or via a rule's `remove` option (combo path), the linked role is stripped from the user; and whenever the user ends up holding any target/Verified role, "Age verified" is added (removed once they hold none). This command never posts a report to the verification channel or touches the `/verify findom`/`sub` records. The bot's role must be higher than every role it needs to touch.
+  `/verify check` requires at least one combo rule to be configured first; if none exist yet it tells you to run `/verify comboroles add`. Whenever the user ends up holding any configured target role, a role literally named **"Age verified"** is added too (if it exists on the server); once they hold none of the target roles, "Age verified" is removed. This command never posts a report to the verification channel or touches the `/verify manual` records. The bot's role must be higher than every role it needs to touch (target role, the rule's `remove` role, and "Age verified").
 
 ## Hosting
 
