@@ -13,7 +13,13 @@ const ROLE_NAMES = {
   verifiedFindomme: 'Verified Findomme',
   verifiedMaledomme: 'Verified Maledomme',
   verifiedSub: 'Verified sub',
+  ageVerified: 'Age verified',
 };
+
+// The three "Verified" roles that /verify check can assign — used to know when
+// "Age verified" should follow along (added when one of these is gained, removed
+// when the member no longer holds any of them).
+const VERIFIED_ROLE_NAMES = [ROLE_NAMES.verifiedFindomme, ROLE_NAMES.verifiedMaledomme, ROLE_NAMES.verifiedSub];
 
 // Any one of these roles qualifies the member for "Verified sub".
 const SUB_TRIGGER_ROLES = ['Finsub', 'RT Slave', 'Switch', 'Gaming slave', 'Lurker'];
@@ -25,8 +31,8 @@ const SUB_TRIGGER_ROLES = ['Finsub', 'RT Slave', 'Switch', 'Gaming slave', 'Lurk
 //   2. Has Findomme (without Male)      -> Verified Findomme
 //   3. Has any of SUB_TRIGGER_ROLES     -> Verified sub
 function determineVerifiedRoleName(memberRoleNames) {
-  const lowerNames = memberRoleNames.map((n) => n.toLowerCase());
-  const has = (name) => lowerNames.includes(name.toLowerCase());
+  const lowerNames = memberRoleNames.map((n) => n.trim().toLowerCase());
+  const has = (name) => lowerNames.includes(name.trim().toLowerCase());
 
   const hasFindomme = has(ROLE_NAMES.findomme);
   const hasMale = has(ROLE_NAMES.male);
@@ -48,6 +54,10 @@ async function setFindomRole(guildId, roleId) {
 
 async function setSubRole(guildId, roleId) {
   await repo.setSubRole(guildId, roleId);
+}
+
+async function setMaledommeRole(guildId, roleId) {
+  await repo.setMaledommeRole(guildId, roleId);
 }
 
 async function setVerifiedChannel(guildId, channelId) {
@@ -103,10 +113,12 @@ module.exports = {
   ValidationError,
   ROLE_NAMES,
   SUB_TRIGGER_ROLES,
+  VERIFIED_ROLE_NAMES,
   determineVerifiedRoleName,
   getGuildConfig,
   setFindomRole,
   setSubRole,
+  setMaledommeRole,
   setVerifiedChannel,
   recordVerification,
   getVerification,

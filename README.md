@@ -98,7 +98,7 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 All `/verify` subcommands require the **Manage Roles** permission.
 
-- `/verify roles [findom] [sub]` — sets the role assigned by `/verify findom` and/or `/verify sub`. Provide either or both.
+- `/verify roles [findom] [sub] [maledomme]` — sets the role assigned by `/verify findom` and/or `/verify sub`, and/or the role `/verify check` assigns when a user has both **Male** and **Findomme** (the "Verified Maledomme" case). Provide any combination of the three.
 - `/verify channel channel:<#channel>` — sets the text channel where verification reports are posted.
 - `/verify findom user:<@user> method:<...> [social]` — verifies someone as Findom: assigns the configured Findom role and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
 - `/verify sub user:<@user> method:<...> [social]` — same as above, but assigns the Sub role and posts a "Sub Verification" report instead.
@@ -111,7 +111,7 @@ Running `/verify findom` or `/verify sub` again on an already-verified user over
   2. Has **Findomme** (without Male) → assigns **Verified Findomme**
   3. Has any of **Finsub**, **RT Slave**, **Switch**, **Gaming slave**, **Lurker** → assigns **Verified sub**
 
-  Role names are matched case-insensitively and must already exist on the server (create them first if missing). The three "Verified" roles are kept mutually exclusive — running the command again also removes a stale one if the user's roles changed. When the outcome is Verified Findomme or Verified Maledomme, the plain "Findomme" role is also removed from the user. This doesn't post a report to the verification channel or touch the `/verify findom`/`sub` records; it's a separate, purely role-based check. The bot's role must be higher than the target "Verified" role (and than "Findomme", when it needs removing) in the role list.
+  Role names are matched case-insensitively and must already exist on the server (create them first if missing) — **except** for the Maledomme case, which uses the role set via `/verify roles maledomme:<role>` when configured (falling back to a role literally named "Verified Maledomme" if not). The three "Verified" roles are kept mutually exclusive — running the command again also removes a stale one if the user's roles changed. When the outcome is Verified Findomme or Verified Maledomme, the plain "Findomme" role is also removed from the user. Whenever the user ends up with any of the three "Verified" roles, the "Age verified" role is added too (if missing); if they end up with none of the three, "Age verified" is removed. This doesn't post a report to the verification channel or touch the `/verify findom`/`sub` records; it's a separate, purely role-based check. The bot's role must be higher than all the roles it needs to touch ("Verified …", "Findomme", "Age verified") in the role list.
 
 ## Hosting
 

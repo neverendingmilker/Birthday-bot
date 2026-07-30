@@ -53,12 +53,18 @@ const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName('roles')
-      .setDescription('[Admin] Set the roles assigned by /verify findom and /verify sub')
+      .setDescription('[Admin] Set the roles assigned by /verify findom, /verify sub and /verify check')
       .addRoleOption((opt) =>
         opt.setName('findom').setDescription('Role to assign for Findom verification').setRequired(false)
       )
       .addRoleOption((opt) =>
         opt.setName('sub').setDescription('Role to assign for Sub verification').setRequired(false)
+      )
+      .addRoleOption((opt) =>
+        opt
+          .setName('maledomme')
+          .setDescription('Role /verify check assigns when a Findomme also has the Male role')
+          .setRequired(false)
       )
   )
   .addSubcommand((sub) =>

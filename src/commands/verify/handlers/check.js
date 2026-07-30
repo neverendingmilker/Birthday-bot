@@ -6,6 +6,17 @@ function findRoleByName(guild, name) {
   return guild.roles.cache.find((r) => r.name.toLowerCase() === name.toLowerCase());
 }
 
+// Resolves one of the three "Verified" roles: the Maledomme one can be configured
+// via `/verify roles maledomme:<role>` (guildConfig.maledomme_role_id) — if set, that
+// takes priority; otherwise (and for the other two) fall back to matching by name.
+function resolveVerifiedRole(guild, roleName, guildConfig) {
+  if (roleName === verifyManager.ROLE_NAMES.verifiedMaledomme && guildConfig.maledomme_role_id) {
+    const configured = guild.roles.cache.get(guildConfig.maledomme_role_id);
+    if (configured) return configured;
+  }
+  return findRoleByName(guild, roleName);
+}
+
 async function handleCheck(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
     await interaction.reply({
@@ -24,6 +35,8 @@ async function handleCheck(interaction) {
     return;
   }
 
+  const guildConfig = await verifyManager.getGuildConfig(interaction.guildId);
+
   const memberRoleNames = member.roles.cache.map((r) => r.name);
   const targetRoleName = verifyManager.determineVerifiedRoleName(memberRoleNames);
 
@@ -31,16 +44,17 @@ async function handleCheck(interaction) {
     await interaction.reply({
       content:
         `⚠️ ${targetUser} doesn't have any of the roles that trigger auto-verification ` +
-        `(Findomme, Male + Findomme, or one of: ${verifyManager.SUB_TRIGGER_ROLES.join(', ')}).`,
+        `(Findomme, Male + Findomme, or one of: ${verifyManager.SUB_TRIGGER_ROLES.join(', ')}).\n` +
+        `Their current roles: ${memberRoleNames.length ? memberRoleNames.map((n) => `\`${n}\``).join(', ') : '(none)'}`,
       ephemeral: true,
     });
     return;
   }
 
-  const targetRole = findRoleByName(guild, targetRoleName);
+  const targetRole = resolveVerifiedRole(guild, targetRoleName, guildConfig);
   if (!targetRole) {
     await interaction.reply({
-      content: `⚠️ The role "${targetRoleName}" doesn't exist on this server yet. Create it first, then run this command again.`,
+      content: `⚠️ The role "${targetRoleName}" doesn't exist on this server yet. Create it (or set it with \`/verify roles\`), then run this command again.`,
       ephemeral: true,
     });
     return;
@@ -57,14 +71,12 @@ async function handleCheck(interaction) {
 
   // Keep the three "Verified" roles mutually exclusive: drop the other two (if present)
   // before adding the correct one, so re-running this command also fixes stale roles.
-  const otherVerifiedNames = [
-    verifyManager.ROLE_NAMES.verifiedFindomme,
-    verifyManager.ROLE_NAMES.verifiedMaledomme,
-    verifyManager.ROLE_NAMES.verifiedSub,
-  ].filter((name) => name.toLowerCase() !== targetRoleName.toLowerCase());
+  const otherVerifiedNames = verifyManager.VERIFIED_ROLE_NAMES.filter(
+    (name) => name.toLowerCase() !== targetRoleName.toLowerCase()
+  );
 
   for (const name of otherVerifiedNames) {
-    const role = findRoleByName(guild, name);
+    const role = resolveVerifiedRole(guild, name, guildConfig);
     if (role && member.roles.cache.has(role.id)) {
       await member.roles.remove(role);
     }
@@ -102,10 +114,33 @@ async function handleCheck(interaction) {
 
   const removedNote = findommeRemoved ? ' The "Findomme" role was removed.' : '';
 
+  // "Age verified" tracks whether the member holds any of the three Verified roles:
+  // add it when they gain one, remove it once they hold none of them.
+  let ageVerifiedNote = '';
+  const ageRole = findRoleByName(guild, verifyManager.ROLE_NAMES.ageVerified);
+  if (ageRole) {
+    const hasAnyVerifiedRole = verifyManager.VERIFIED_ROLE_NAMES.some((name) => {
+      const role = resolveVerifiedRole(guild, name, guildConfig);
+      return role && member.roles.cache.has(role.id);
+    });
+
+    if (botMember.roles.highest.position > ageRole.position) {
+      if (hasAnyVerifiedRole && !member.roles.cache.has(ageRole.id)) {
+        await member.roles.add(ageRole);
+        ageVerifiedNote = ' "Age verified" was added.';
+      } else if (!hasAnyVerifiedRole && member.roles.cache.has(ageRole.id)) {
+        await member.roles.remove(ageRole);
+        ageVerifiedNote = ' "Age verified" was removed.';
+      }
+    } else if (hasAnyVerifiedRole && !member.roles.cache.has(ageRole.id)) {
+      ageVerifiedNote = ' ⚠️ Couldn\'t add "Age verified": my role needs to be moved higher in the role list.';
+    }
+  }
+
   await interaction.reply({
     content: alreadyHadIt
-      ? `✅ ${targetUser} already had ${targetRole} (no change needed).${removedNote}`
-      : `✅ ${targetUser} verified: assigned ${targetRole}.${removedNote}`,
+      ? `✅ ${targetUser} already had ${targetRole} (no change needed).${removedNote}${ageVerifiedNote}`
+      : `✅ ${targetUser} verified: assigned ${targetRole}.${removedNote}${ageVerifiedNote}`,
     ephemeral: true,
   });
 }
