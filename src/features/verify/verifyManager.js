@@ -4,6 +4,40 @@ class ValidationError extends Error {}
 
 const TYPES = ['findom', 'sub'];
 
+// --- Role-based auto-verification (used by /verify check) ---
+// These are matched by role NAME (case-insensitive) against the roles the member
+// already holds on the server, not stored in the DB.
+const ROLE_NAMES = {
+  findomme: 'Findomme',
+  male: 'Male',
+  verifiedFindomme: 'Verified Findomme',
+  verifiedMaledomme: 'Verified Maledomme',
+  verifiedSub: 'Verified sub',
+};
+
+// Any one of these roles qualifies the member for "Verified sub".
+const SUB_TRIGGER_ROLES = ['Finsub', 'RT Slave', 'Switch', 'Gaming slave', 'Lurker'];
+
+// Given the list of role names a member currently holds, decides which "Verified"
+// role name applies to them, or null if none of the rules match.
+// Rules (checked in this order):
+//   1. Has BOTH Findomme and Male       -> Verified Maledomme
+//   2. Has Findomme (without Male)      -> Verified Findomme
+//   3. Has any of SUB_TRIGGER_ROLES     -> Verified sub
+function determineVerifiedRoleName(memberRoleNames) {
+  const lowerNames = memberRoleNames.map((n) => n.toLowerCase());
+  const has = (name) => lowerNames.includes(name.toLowerCase());
+
+  const hasFindomme = has(ROLE_NAMES.findomme);
+  const hasMale = has(ROLE_NAMES.male);
+  const hasSubTrigger = SUB_TRIGGER_ROLES.some((name) => has(name));
+
+  if (hasFindomme && hasMale) return ROLE_NAMES.verifiedMaledomme;
+  if (hasFindomme) return ROLE_NAMES.verifiedFindomme;
+  if (hasSubTrigger) return ROLE_NAMES.verifiedSub;
+  return null;
+}
+
 async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
@@ -67,6 +101,9 @@ async function editVerification(guildId, userId, type, socialInput, methodInput)
 
 module.exports = {
   ValidationError,
+  ROLE_NAMES,
+  SUB_TRIGGER_ROLES,
+  determineVerifiedRoleName,
   getGuildConfig,
   setFindomRole,
   setSubRole,

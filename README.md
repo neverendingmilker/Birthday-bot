@@ -106,6 +106,13 @@ All `/verify` subcommands require the **Manage Roles** permission.
 
 Running `/verify findom` or `/verify sub` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
 
+- `/verify check user:<@user>` — **admin**: looks at the roles the user already holds on the server and auto-assigns the matching "Verified" role, based on these rules (checked in order):
+  1. Has both **Male** and **Findomme** → assigns **Verified Maledomme**
+  2. Has **Findomme** (without Male) → assigns **Verified Findomme**
+  3. Has any of **Finsub**, **RT Slave**, **Switch**, **Gaming slave**, **Lurker** → assigns **Verified sub**
+
+  Role names are matched case-insensitively and must already exist on the server (create them first if missing). The three "Verified" roles are kept mutually exclusive — running the command again also removes a stale one if the user's roles changed. When the outcome is Verified Findomme or Verified Maledomme, the plain "Findomme" role is also removed from the user. This doesn't post a report to the verification channel or touch the `/verify findom`/`sub` records; it's a separate, purely role-based check. The bot's role must be higher than the target "Verified" role (and than "Findomme", when it needs removing) in the role list.
+
 ## Hosting
 
 The bot must stay **connected 24/7** (it's not an "on-demand" webapp), so avoid hosting that puts the process to sleep on inactivity without a way to "wake it up". The database is external (Turso), so the data stays safe no matter how/where the bot's process gets restarted.

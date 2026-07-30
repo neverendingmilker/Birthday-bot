@@ -4,6 +4,7 @@ const { handleSub } = require('./handlers/sub');
 const { handleEdit } = require('./handlers/edit');
 const { handleRoles } = require('./handlers/roles');
 const { handleChannel } = require('./handlers/channel');
+const { handleCheck } = require('./handlers/check');
 
 const data = new SlashCommandBuilder()
   .setName('verify')
@@ -71,6 +72,12 @@ const data = new SlashCommandBuilder()
           .addChannelTypes(ChannelType.GuildText)
           .setRequired(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('check')
+      .setDescription("[Admin] Auto-assign the right Verified role based on the user's other roles")
+      .addUserOption((opt) => opt.setName('user').setDescription('User to check').setRequired(true))
   );
 
 async function execute(interaction) {
@@ -87,6 +94,8 @@ async function execute(interaction) {
       return handleRoles(interaction);
     case 'channel':
       return handleChannel(interaction);
+    case 'check':
+      return handleCheck(interaction);
     default:
       return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
   }
