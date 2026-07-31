@@ -15,9 +15,9 @@ async function handleConfig(interaction) {
   }
 
   const options = {
-    subGive: interaction.options.getRole('subgive'),
-    dommeGive: interaction.options.getRole('dommegive'),
-    maledomGive: interaction.options.getRole('maledomgive'),
+    subGive: interaction.options.getRole('verified_sub'),
+    dommeGive: interaction.options.getRole('verified_domme'),
+    maledomGive: interaction.options.getRole('verified_maledom'),
     remove: interaction.options.getRole('remove'),
     allowedRole: interaction.options.getRole('allowedrole'),
   };

@@ -10,12 +10,12 @@ const data = new SlashCommandBuilder()
     sub
       .setName('config')
       .setDescription('[Admin] Configure the give roles, shared remove role and report channel for sub, domme and maledom')
-      .addRoleOption((opt) => opt.setName('subgive').setDescription('Role to give for /verify sub').setRequired(false))
+      .addRoleOption((opt) => opt.setName('verified_sub').setDescription('Role to give for /verify sub').setRequired(false))
       .addRoleOption((opt) =>
-        opt.setName('dommegive').setDescription('Role to give for /verify domme').setRequired(false)
+        opt.setName('verified_domme').setDescription('Role to give for /verify domme').setRequired(false)
       )
       .addRoleOption((opt) =>
-        opt.setName('maledomgive').setDescription('Role to give for /verify maledom').setRequired(false)
+        opt.setName('verified_maledom').setDescription('Role to give for /verify maledom').setRequired(false)
       )
       .addRoleOption((opt) =>
         opt

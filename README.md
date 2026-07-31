@@ -94,8 +94,8 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 All `/verify` subcommands require the **Manage Roles** permission.
 
-- `/verify config [subgive] [subremove] [dommegive] [dommeremove] [maledomgive] [maledomremove] [channel]` — configures any combination of the following in one call:
-  - `subgive` / `dommegive` / `maledomgive` — the role assigned by `/verify sub`, `/verify domme`, `/verify maledom` respectively.
+- `/verify config [verified_sub] [subremove] [verified_domme] [dommeremove] [verified_maledom] [maledomremove] [channel]` — configures any combination of the following in one call:
+  - `verified_sub` / `verified_domme` / `verified_maledom` — the role assigned by `/verify sub`, `/verify domme`, `/verify maledom` respectively.
   - `subremove` / `dommeremove` / `maledomremove` — an **optional** role to strip from the member (if they currently have it) when that command is run — e.g. remove a generic "Unverified" or "Findomme" role once the specific Verified role is granted.
   - `channel:<#channel>` — the text channel where verification reports are posted (report format: TBD).
 - `/verify sub user:<@user>` / `/verify domme user:<@user>` / `/verify maledom user:<@user>` — assigns the configured "give" role for that type (no-op if the member already has it), and removes the configured "remove" role for that type if the member currently holds it.
