@@ -73,6 +73,46 @@ function determineComboRule(rules, memberRoleIds) {
   );
 }
 
+// --- Role categories ("Dom" / "Sub") ---
+// Purely a gate for /verify check: if a member holds none of the roles configured under
+// either category, the combo rules can't tell what they are, so we ask an admin instead
+// of guessing or refusing outright.
+
+const CATEGORIES = ['dom', 'sub'];
+
+async function addCategoryRole(guildId, category, roleId) {
+  if (!CATEGORIES.includes(category)) {
+    throw new ValidationError('Category must be "dom" or "sub".');
+  }
+  if (!roleId) {
+    throw new ValidationError('A role is required.');
+  }
+  await repo.addCategoryRole(guildId, category, roleId);
+}
+
+async function removeCategoryRole(guildId, category, roleId) {
+  if (!CATEGORIES.includes(category)) {
+    throw new ValidationError('Category must be "dom" or "sub".');
+  }
+  await repo.removeCategoryRole(guildId, category, roleId);
+}
+
+// Returns { dom: [roleId, ...], sub: [roleId, ...] }.
+async function listCategoryRoles(guildId) {
+  const rows = await repo.listCategoryRoles(guildId);
+  const grouped = { dom: [], sub: [] };
+  for (const row of rows) {
+    if (grouped[row.category]) grouped[row.category].push(row.role_id);
+  }
+  return grouped;
+}
+
+// True if the member holds at least one role configured under either category.
+function hasAnyCategoryRole(memberRoleIds, categoryRoles) {
+  const allCategoryIds = new Set([...categoryRoles.dom, ...categoryRoles.sub]);
+  return memberRoleIds.some((id) => allCategoryIds.has(id));
+}
+
 // Records (or overwrites, if the user is re-verified) a verification entry.
 async function recordVerification(guildId, userId, type, socialInput, methodInput, verifiedBy, channelId, messageId) {
   if (!TYPES.includes(type)) {
@@ -129,6 +169,10 @@ module.exports = {
   listComboRules,
   deleteComboRule,
   determineComboRule,
+  addCategoryRole,
+  removeCategoryRole,
+  listCategoryRoles,
+  hasAnyCategoryRole,
   recordVerification,
   getVerification,
   editVerification,

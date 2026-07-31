@@ -8,6 +8,11 @@ const {
   handleComboRolesList,
   handleComboRolesRemove,
 } = require('./handlers/comboroles');
+const {
+  handleCategoriesAdd,
+  handleCategoriesList,
+  handleCategoriesRemove,
+} = require('./handlers/categories');
 
 const data = new SlashCommandBuilder()
   .setName('verify')
@@ -104,6 +109,38 @@ const data = new SlashCommandBuilder()
             opt.setName('id').setDescription('Rule ID, shown by /verify comboroles list').setRequired(true)
           )
       )
+  )
+  .addSubcommandGroup((group) =>
+    group
+      .setName('categories')
+      .setDescription('[Admin] Configure which roles count as "Dom" or "Sub" for /verify check')
+      .addSubcommand((sub) =>
+        sub
+          .setName('add')
+          .setDescription('[Admin] Add a role to the Dom or Sub category')
+          .addStringOption((opt) =>
+            opt
+              .setName('category')
+              .setDescription('Which category')
+              .setRequired(true)
+              .addChoices({ name: 'Dom', value: 'dom' }, { name: 'Sub', value: 'sub' })
+          )
+          .addRoleOption((opt) => opt.setName('role').setDescription('Role to add').setRequired(true))
+      )
+      .addSubcommand((sub) => sub.setName('list').setDescription('[Admin] List the configured Dom/Sub category roles'))
+      .addSubcommand((sub) =>
+        sub
+          .setName('remove')
+          .setDescription('[Admin] Remove a role from the Dom or Sub category')
+          .addStringOption((opt) =>
+            opt
+              .setName('category')
+              .setDescription('Which category')
+              .setRequired(true)
+              .addChoices({ name: 'Dom', value: 'dom' }, { name: 'Sub', value: 'sub' })
+          )
+          .addRoleOption((opt) => opt.setName('role').setDescription('Role to remove').setRequired(true))
+      )
   );
 
 async function execute(interaction) {
@@ -118,6 +155,19 @@ async function execute(interaction) {
         return handleComboRolesList(interaction);
       case 'remove':
         return handleComboRolesRemove(interaction);
+      default:
+        return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
+    }
+  }
+
+  if (group === 'categories') {
+    switch (sub) {
+      case 'add':
+        return handleCategoriesAdd(interaction);
+      case 'list':
+        return handleCategoriesList(interaction);
+      case 'remove':
+        return handleCategoriesRemove(interaction);
       default:
         return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
     }

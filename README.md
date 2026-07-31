@@ -115,6 +115,12 @@ Running `/verify manual` again on an already-verified user overwrites their prev
 
   `/verify check` requires at least one combo rule to be configured first; if none exist yet it tells you to run `/verify comboroles add`. Whenever the user ends up holding any configured target role, a role literally named **"Age verified"** is added too (if it exists on the server); once they hold none of the target roles, "Age verified" is removed. This command never posts a report to the verification channel or touches the `/verify manual` records. The bot's role must be higher than every role it needs to touch (target role, the rule's `remove` role, and "Age verified").
 
+  - `/verify categories add category:<Dom|Sub> role:<@role>` — marks a role as belonging to the **Dom** or **Sub** category (e.g. put Findomme and Male under Dom; Finsub, RT Slave, Switch, Gaming slave, Lurker under Sub).
+  - `/verify categories list` — shows the roles currently in each category.
+  - `/verify categories remove category:<Dom|Sub> role:<@role>` — removes a role from a category.
+
+  These categories are only used as a **gate**: if you've configured at least one Dom or Sub role and the checked user holds **none** of them, `/verify check` can't infer anything from their roles, so instead of guessing (or refusing) it replies with a button for each configured target role ("Verified Findomme", "Verified Maledomme", "Verified sub", or whatever you've named them) plus a "None of these" button. Whichever one an admin clicks gets applied exactly like an automatic match — mutual exclusivity, the rule's `remove` role, and the "Age verified" sync all still happen. If no categories are configured at all, this prompt never appears and `/verify check` always falls back to the automatic combo-rule matching.
+
 ## Hosting
 
 The bot must stay **connected 24/7** (it's not an "on-demand" webapp), so avoid hosting that puts the process to sleep on inactivity without a way to "wake it up". The database is external (Turso), so the data stays safe no matter how/where the bot's process gets restarted.

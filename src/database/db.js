@@ -82,6 +82,12 @@ async function createTables() {
         remove_role_id TEXT,
         created_at INTEGER NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS verify_role_categories (
+        guild_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        role_id TEXT NOT NULL,
+        PRIMARY KEY (guild_id, category, role_id)
+      )`,
     ],
     'write'
   );

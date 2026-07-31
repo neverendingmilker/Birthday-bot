@@ -141,6 +141,34 @@ async function deleteComboRule(guildId, id) {
   });
 }
 
+// --- Role categories ("Dom" / "Sub") — used only to decide whether a member already
+// has a self-evident category role, or needs a manual verification prompt instead. ---
+
+async function addCategoryRole(guildId, category, roleId) {
+  await db.ready;
+  await db.client.execute({
+    sql: 'INSERT OR IGNORE INTO verify_role_categories (guild_id, category, role_id) VALUES (?, ?, ?)',
+    args: [guildId, category, roleId],
+  });
+}
+
+async function removeCategoryRole(guildId, category, roleId) {
+  await db.ready;
+  await db.client.execute({
+    sql: 'DELETE FROM verify_role_categories WHERE guild_id = ? AND category = ? AND role_id = ?',
+    args: [guildId, category, roleId],
+  });
+}
+
+async function listCategoryRoles(guildId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT category, role_id FROM verify_role_categories WHERE guild_id = ? ORDER BY category ASC',
+    args: [guildId],
+  });
+  return result.rows.map((row) => ({ category: row.category, role_id: row.role_id }));
+}
+
 module.exports = {
   getGuildConfig,
   setFindomRole,
@@ -153,4 +181,7 @@ module.exports = {
   listComboRules,
   getComboRule,
   deleteComboRule,
+  addCategoryRole,
+  removeCategoryRole,
+  listCategoryRoles,
 };
