@@ -73,7 +73,8 @@ async function createTables() {
         message_id TEXT NOT NULL,
         verification TEXT NOT NULL,
         social TEXT NOT NULL,
-        verified_at INTEGER NOT NULL
+        verified_at INTEGER NOT NULL,
+        moderator_id TEXT
       )`,
     ],
     'write'
@@ -127,6 +128,13 @@ async function migrate() {
        SET remove_role_id = COALESCE(sub_remove_role_id, domme_remove_role_id, maledom_remove_role_id)
        WHERE remove_role_id IS NULL`
     );
+  }
+
+  const verifyReportColumns = await client.execute('PRAGMA table_info(verify_reports)');
+  const verifyReportColumnNames = verifyReportColumns.rows.map((row) => row.name);
+
+  if (!verifyReportColumnNames.includes('moderator_id')) {
+    await client.execute('ALTER TABLE verify_reports ADD COLUMN moderator_id TEXT');
   }
 }
 

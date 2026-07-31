@@ -95,7 +95,7 @@ async function handleVerifyType(interaction, type) {
 
     if (botMember.roles.highest.position > otherGiveRole.position) {
       await member.roles.remove(otherGiveRole);
-      notes.push(`🗑️ Removed ${otherGiveRole} (was previously verified as ${verifyManager.TYPE_LABELS[otherType]}).`);
+      notes.push(`🗑️ Removed ${otherGiveRole}.`);
     } else {
       notes.push(
         `⚠️ Couldn't remove ${otherGiveRole} (${verifyManager.TYPE_LABELS[otherType]}): my role needs to be moved higher in the server's role list.`
@@ -136,6 +136,7 @@ async function handleVerifyType(interaction, type) {
           verification,
           social,
           verifiedAtSeconds,
+          moderatorMention: `${interaction.user}`,
         });
 
         const reportMessage = await reportChannel.send({ content: `${targetUser}`, embeds: [reportEmbed] });
@@ -150,6 +151,7 @@ async function handleVerifyType(interaction, type) {
           verification,
           social,
           verified_at: verifiedAtSeconds,
+          moderator_id: interaction.user.id,
         });
       }
     }

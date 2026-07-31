@@ -64,6 +64,9 @@ async function handleEditModalSubmit(interaction) {
   }
 
   const targetUser = await interaction.client.users.fetch(report.user_id).catch(() => null);
+  const moderator = report.moderator_id
+    ? await interaction.client.users.fetch(report.moderator_id).catch(() => null)
+    : null;
 
   const updatedEmbed = buildReportEmbed({
     type: report.type,
@@ -73,6 +76,7 @@ async function handleEditModalSubmit(interaction) {
     verification: field === 'verification' ? newValue : report.verification,
     social: field === 'social' ? newValue : report.social,
     verifiedAtSeconds: report.verified_at,
+    moderatorMention: moderator ? `${moderator}` : report.moderator_id ? `<@${report.moderator_id}>` : 'Unknown',
   });
 
   await message.edit({ embeds: [updatedEmbed] });

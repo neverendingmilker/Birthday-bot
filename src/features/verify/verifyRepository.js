@@ -74,6 +74,7 @@ function parseReportRow(row) {
     verification: row.verification,
     social: row.social,
     verified_at: row.verified_at,
+    moderator_id: row.moderator_id,
   };
 }
 
@@ -81,8 +82,8 @@ async function insertReport(report) {
   await db.ready;
   const result = await db.client.execute({
     sql: `INSERT INTO verify_reports
-            (guild_id, user_id, type, channel_id, message_id, verification, social, verified_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            (guild_id, user_id, type, channel_id, message_id, verification, social, verified_at, moderator_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       report.guild_id,
       report.user_id,
@@ -92,6 +93,7 @@ async function insertReport(report) {
       report.verification,
       report.social,
       report.verified_at,
+      report.moderator_id,
     ],
   });
   return Number(result.lastInsertRowid);
