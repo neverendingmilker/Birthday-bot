@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { handleAdd } = require('./handlers/add');
+const { handleRemove } = require('./handlers/remove');
 const { handleConfig } = require('./handlers/config');
 const { handleList } = require('./handlers/list');
 
@@ -23,6 +24,17 @@ const data = new SlashCommandBuilder()
         opt
           .setName('user')
           .setDescription('[Admin only] Set the birthday for someone else instead of yourself')
+          .setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('remove')
+      .setDescription('Remove your birthday (or, for admins, someone else\'s)')
+      .addUserOption((opt) =>
+        opt
+          .setName('user')
+          .setDescription('[Admin only] Remove someone else\'s birthday instead of your own')
           .setRequired(false)
       )
   )
@@ -57,6 +69,8 @@ async function execute(interaction) {
   switch (sub) {
     case 'add':
       return handleAdd(interaction);
+    case 'remove':
+      return handleRemove(interaction);
     case 'config':
       return handleConfig(interaction);
     case 'list':

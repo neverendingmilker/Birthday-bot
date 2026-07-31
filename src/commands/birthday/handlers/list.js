@@ -22,7 +22,7 @@ function truncate(text, max) {
 }
 
 async function handleList(interaction) {
-  const groups = await birthdayManager.getUpcomingBirthdaysGroupedByMonth(interaction.guildId);
+  const groups = await birthdayManager.getBirthdaysGroupedByMonth(interaction.guildId);
 
   if (groups.length === 0) {
     await interaction.reply({
@@ -34,7 +34,7 @@ async function handleList(interaction) {
 
   const embed = new EmbedBuilder()
     .setColor(EMBED_COLOR)
-    .setTitle(`🎂 Upcoming birthdays — ${interaction.guild.name}`)
+    .setTitle(`🎂 Birthdays — ${interaction.guild.name}`)
     .setFooter({
       text: `Requested by ${interaction.user.username}`,
       iconURL: interaction.user.displayAvatarURL(),

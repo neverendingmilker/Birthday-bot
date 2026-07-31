@@ -91,26 +91,25 @@ function nextOccurrence(day, month, today) {
   return { date: candidate, daysUntil };
 }
 
-// All birthdays in a guild, sorted by the soonest upcoming and grouped by month
-// (the month of the NEXT occurrence, so the year rollover is handled correctly).
-async function getUpcomingBirthdaysGroupedByMonth(guildId, today = new Date()) {
+// All birthdays in a guild, grouped by calendar month (January first, December last)
+// and sorted by day within each month — NOT by how soon they're coming up.
+async function getBirthdaysGroupedByMonth(guildId, today = new Date()) {
   const rows = await repo.getAllBirthdaysInGuild(guildId);
 
   const withDates = rows
     .map((row) => {
       const { date, daysUntil } = nextOccurrence(row.day, row.month, today);
-      return { userId: row.user_id, date, daysUntil };
+      return { userId: row.user_id, day: row.day, month: row.month, date, daysUntil };
     })
-    .sort((a, b) => a.daysUntil - b.daysUntil);
+    .sort((a, b) => a.month - b.month || a.day - b.day);
 
   const groups = [];
-  let currentKey = null;
+  let currentMonth = null;
 
   for (const entry of withDates) {
-    const key = `${entry.date.getFullYear()}-${entry.date.getMonth()}`;
-    if (key !== currentKey) {
-      groups.push({ monthLabel: MONTH_NAMES[entry.date.getMonth()], entries: [] });
-      currentKey = key;
+    if (entry.month !== currentMonth) {
+      groups.push({ monthLabel: MONTH_NAMES[entry.month - 1], entries: [] });
+      currentMonth = entry.month;
     }
     groups[groups.length - 1].entries.push(entry);
   }
@@ -127,7 +126,7 @@ module.exports = {
   setBirthdayChannel,
   setRemoveAfterDuration,
   getGuildConfig,
-  getUpcomingBirthdaysGroupedByMonth,
+  getBirthdaysGroupedByMonth,
   // exposed for the scheduler
   repo,
 };
