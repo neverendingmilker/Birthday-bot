@@ -20,15 +20,6 @@ src/
         list.js
         last.js
         edit.js
-    verify/
-      index.js       (defines /verify, its subcommands and the comboroles subcommand group)
-      handlers/
-        manual.js    (Findom/Sub verification, merged into one subcommand picked via `type`)
-        edit.js
-        config.js    (Findom/Sub roles + report channel, merged into one subcommand)
-        check.js
-        comboroles.js
-        verifyAction.js (shared helper used by manual.js, not a subcommand itself)
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -37,9 +28,6 @@ src/
     animenight/
       animeNightManager.js     (validation, title/date parsing, sessions, sorting)
       animeNightRepository.js  (SQL queries)
-    verify/
-      verifyManager.js     (validation and rules)
-      verifyRepository.js  (SQL queries)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -93,34 +81,6 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 - `/animenight list [order]` — shows the watch list as an embed **grouped by session** (10 sessions per page), paginated with ◀ Previous / Next ▶ buttons once there are more than 10. Sessions always appear in chronological order; `order` only controls how titles are sorted *within* each session — `alphabetical` (default) or `added` (the order they were added in).
 - `/animenight last` — shows every anime from the most recent Mystery Anime Night **session** (i.e. the latest distinct date), not just the last few inserted rows. Also paginated if that session has many entries.
 - `/animenight edit session:<...> [titles] [date]` — **admin**: edits an existing session. The `session` option has autocomplete — start typing and Discord suggests matching sessions (e.g. "Mystery Anime Night 3 — 23/10/2026 (5 anime)"), most recent first. Provide `titles` to replace the whole anime list for that session, `date` to move it to a different day (moving it onto an existing session's date merges the two), or both. Session numbers are computed dynamically from chronological order, so they stay correct even after edits.
-
-## Available commands (Verify feature)
-
-All `/verify` subcommands require the **Manage Roles** permission.
-
-- `/verify config [findom] [sub] [channel]` — configures any combination of:
-  - `findom:<@role>` — role assigned by `/verify manual type:Findom`.
-  - `sub:<@role>` — role assigned by `/verify manual type:Sub`.
-  - `channel:<#channel>` — text channel where verification reports are posted.
-- `/verify manual type:<Findom|Sub> user:<@user> method:<...> [social]` — verifies someone as Findom or Sub: assigns the configured role for that type and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
-- `/verify edit user:<@user> type:<Findom|Sub> [social] [method]` — edits the Social and/or Method of an existing verification. If the original report message can still be found, it's edited in place to match; otherwise you're told the record was updated but the message couldn't be found.
-
-Running `/verify manual` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
-
-- `/verify check user:<@user>` — **admin**: looks at the roles the user already holds and auto-assigns a role, based on the combo rules configured for the server via `/verify comboroles`:
-  - `/verify comboroles add target:<@role> role1:<@role> [role2] [role3] [role4] [role5] [remove:<@role>]` — creates a rule: a member holding **all** of `role1..role5` gets `target`. `remove` is optional — a role to strip from the member once this rule matches (e.g. remove "Findomme" once "Verified Findomme" is granted).
-  - `/verify comboroles list` — lists configured rules with their IDs.
-  - `/verify comboroles remove id:<number>` — deletes a rule by the ID shown in `list`.
-
-  Roles are picked directly from Discord's role picker and matched by **ID**, not by name — so emoji, spaces, or special characters in a role's name never cause a mismatch. If several rules match the same user, the one requiring the most roles wins (e.g. a "Findomme + Male" rule beats a plain "Findomme" rule). All configured target roles are kept mutually exclusive automatically — assigning one drops any other the member already had.
-
-  `/verify check` requires at least one combo rule to be configured first; if none exist yet it tells you to run `/verify comboroles add`. Whenever the user ends up holding any configured target role, a role literally named **"Age verified"** is added too (if it exists on the server); once they hold none of the target roles, "Age verified" is removed. This command never posts a report to the verification channel or touches the `/verify manual` records. The bot's role must be higher than every role it needs to touch (target role, the rule's `remove` role, and "Age verified").
-
-  - `/verify categories add category:<Dom|Sub> role:<@role>` — marks a role as belonging to the **Dom** or **Sub** category (e.g. put Findomme and Male under Dom; Finsub, RT Slave, Switch, Gaming slave, Lurker under Sub).
-  - `/verify categories list` — shows the roles currently in each category.
-  - `/verify categories remove category:<Dom|Sub> role:<@role>` — removes a role from a category.
-
-  These categories are only used as a **gate**: if you've configured at least one Dom or Sub role and the checked user holds **none** of them, `/verify check` can't infer anything from their roles, so instead of guessing (or refusing) it replies with a button for each configured target role ("Verified Findomme", "Verified Maledomme", "Verified sub", or whatever you've named them) plus a "None of these" button. Whichever one an admin clicks gets applied exactly like an automatic match — mutual exclusivity, the rule's `remove` role, and the "Age verified" sync all still happen. If no categories are configured at all, this prompt never appears and `/verify check` always falls back to the automatic combo-rule matching.
 
 ## Hosting
 

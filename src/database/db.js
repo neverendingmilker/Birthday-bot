@@ -55,39 +55,6 @@ async function createTables() {
         added_at INTEGER NOT NULL,
         added_by TEXT
       )`,
-      `CREATE TABLE IF NOT EXISTS verify_guild_config (
-        guild_id TEXT PRIMARY KEY,
-        findom_role_id TEXT,
-        sub_role_id TEXT,
-        maledomme_role_id TEXT,
-        verified_channel_id TEXT
-      )`,
-      `CREATE TABLE IF NOT EXISTS verify_entries (
-        guild_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        social TEXT,
-        method TEXT NOT NULL,
-        verified_at INTEGER NOT NULL,
-        verified_by TEXT NOT NULL,
-        channel_id TEXT,
-        message_id TEXT,
-        PRIMARY KEY (guild_id, user_id, type)
-      )`,
-      `CREATE TABLE IF NOT EXISTS verify_combo_rules (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        guild_id TEXT NOT NULL,
-        target_role_id TEXT NOT NULL,
-        trigger_role_ids TEXT NOT NULL,
-        remove_role_id TEXT,
-        created_at INTEGER NOT NULL
-      )`,
-      `CREATE TABLE IF NOT EXISTS verify_role_categories (
-        guild_id TEXT NOT NULL,
-        category TEXT NOT NULL,
-        role_id TEXT NOT NULL,
-        PRIMARY KEY (guild_id, category, role_id)
-      )`,
     ],
     'write'
   );
@@ -117,13 +84,6 @@ async function migrate() {
   await client.execute(
     'UPDATE birthday_guild_config SET remove_after_seconds = 86400 WHERE remove_after_seconds IS NULL'
   );
-
-  const verifyColumns = await client.execute('PRAGMA table_info(verify_guild_config)');
-  const verifyColumnNames = verifyColumns.rows.map((row) => row.name);
-
-  if (!verifyColumnNames.includes('maledomme_role_id')) {
-    await client.execute('ALTER TABLE verify_guild_config ADD COLUMN maledomme_role_id TEXT');
-  }
 }
 
 const ready = createTables()
