@@ -21,24 +21,20 @@ async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
 
-// Updates any combination of settings in one call: the give/remove roles for the
-// three verification types, the report channel, and/or the role allowed to run
-// /verify sub, domme and maledom. `updates` keys (all optional, pass only the ones
-// that changed): subGive, subRemove, dommeGive, dommeRemove, maledomGive,
-// maledomRemove, allowedRole (role ID strings), channel (channel ID string).
+// Updates any combination of settings in one call: the give roles for the three
+// verification types, the single shared remove role, the report channel, and/or
+// the role allowed to run /verify sub, domme and maledom. `updates` keys (all
+// optional, pass only the ones that changed): subGive, dommeGive, maledomGive,
+// remove, allowedRole (role ID strings), channel (channel ID string).
 async function setConfig(guildId, updates) {
   const current = await repo.getGuildConfig(guildId);
 
   const merged = {
     sub_give_role_id: updates.subGive !== undefined ? updates.subGive : current.sub_give_role_id,
-    sub_remove_role_id: updates.subRemove !== undefined ? updates.subRemove : current.sub_remove_role_id,
     domme_give_role_id: updates.dommeGive !== undefined ? updates.dommeGive : current.domme_give_role_id,
-    domme_remove_role_id:
-      updates.dommeRemove !== undefined ? updates.dommeRemove : current.domme_remove_role_id,
     maledom_give_role_id:
       updates.maledomGive !== undefined ? updates.maledomGive : current.maledom_give_role_id,
-    maledom_remove_role_id:
-      updates.maledomRemove !== undefined ? updates.maledomRemove : current.maledom_remove_role_id,
+    remove_role_id: updates.remove !== undefined ? updates.remove : current.remove_role_id,
     report_channel_id: updates.channel !== undefined ? updates.channel : current.report_channel_id,
     allowed_role_id: updates.allowedRole !== undefined ? updates.allowedRole : current.allowed_role_id,
   };
@@ -48,14 +44,15 @@ async function setConfig(guildId, updates) {
 }
 
 // Returns { giveRoleId, removeRoleId } for a verification type, reading from the
-// guild's config object (as returned by getGuildConfig).
+// guild's config object (as returned by getGuildConfig). removeRoleId is the same
+// single shared role for all three types.
 function getRoleIdsForType(config, type) {
   if (!TYPES.includes(type)) {
     throw new ValidationError(`Unknown verification type "${type}".`);
   }
   return {
     giveRoleId: config[`${type}_give_role_id`],
-    removeRoleId: config[`${type}_remove_role_id`],
+    removeRoleId: config.remove_role_id,
   };
 }
 
@@ -68,13 +65,48 @@ function canUseVerifyCommands(member, config) {
   return false;
 }
 
+// --- Verification reports (for /verify edit) ---
+
+const EDITABLE_FIELDS = ['verification', 'social'];
+
+async function recordReport(report) {
+  return repo.insertReport(report);
+}
+
+// The report to edit for a given user: always the most recent one, regardless of
+// which of the three types it was ("edit the last one" when several exist).
+async function getLastReportForUser(guildId, userId) {
+  return repo.getLastReportForUser(guildId, userId);
+}
+
+async function getReportById(id) {
+  return repo.getReportById(id);
+}
+
+async function deleteReport(id) {
+  return repo.deleteReport(id);
+}
+
+async function updateReportField(id, field, value) {
+  if (!EDITABLE_FIELDS.includes(field)) {
+    throw new ValidationError(`Field "${field}" can't be edited.`);
+  }
+  await repo.updateReportField(id, field, value);
+}
+
 module.exports = {
   ValidationError,
   TYPES,
   TYPE_LABELS,
   TYPE_COLORS,
+  EDITABLE_FIELDS,
   getGuildConfig,
   setConfig,
   getRoleIdsForType,
   canUseVerifyCommands,
+  recordReport,
+  getLastReportForUser,
+  getReportById,
+  updateReportField,
+  deleteReport,
 };

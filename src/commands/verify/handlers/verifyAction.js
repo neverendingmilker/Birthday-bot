@@ -1,9 +1,10 @@
-const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { PermissionFlagsBits } = require('discord.js');
 const verifyManager = require('../../../features/verify/verifyManager');
+const { buildReportEmbed } = require('./reportEmbed');
 
 // Shared logic behind /verify sub, /verify domme and /verify maledom: assigns the
-// role configured (via /verify config) for that type, and removes the paired
-// "remove" role if the member currently holds it.
+// role configured (via /verify config) for that type, and removes the single
+// shared "remove" role if the member currently holds it.
 async function handleVerifyType(interaction, type) {
   const label = verifyManager.TYPE_LABELS[type];
   const targetUser = interaction.options.getUser('user');
@@ -69,7 +70,7 @@ async function handleVerifyType(interaction, type) {
   if (removeRoleId) {
     const removeRole = guild.roles.cache.get(removeRoleId);
     if (!removeRole) {
-      notes.push(`⚠️ The role configured to remove for **${label}** no longer exists on this server.`);
+      notes.push('⚠️ The configured remove role no longer exists on this server.');
     } else if (member.roles.cache.has(removeRole.id)) {
       if (botMember.roles.highest.position > removeRole.position) {
         await member.roles.remove(removeRole);
@@ -77,6 +78,28 @@ async function handleVerifyType(interaction, type) {
       } else {
         notes.push(`⚠️ Couldn't remove ${removeRole}: my role needs to be moved higher in the server's role list.`);
       }
+    }
+  }
+
+  // Keep the three verification types mutually exclusive: if the member holds the
+  // "give" role of one of the other two types, strip it now that they're being
+  // verified as this one.
+  for (const otherType of verifyManager.TYPES) {
+    if (otherType === type) continue;
+
+    const otherGiveRoleId = config[`${otherType}_give_role_id`];
+    if (!otherGiveRoleId) continue;
+
+    const otherGiveRole = guild.roles.cache.get(otherGiveRoleId);
+    if (!otherGiveRole || !member.roles.cache.has(otherGiveRole.id)) continue;
+
+    if (botMember.roles.highest.position > otherGiveRole.position) {
+      await member.roles.remove(otherGiveRole);
+      notes.push(`🗑️ Removed ${otherGiveRole} (was previously verified as ${verifyManager.TYPE_LABELS[otherType]}).`);
+    } else {
+      notes.push(
+        `⚠️ Couldn't remove ${otherGiveRole} (${verifyManager.TYPE_LABELS[otherType]}): my role needs to be moved higher in the server's role list.`
+      );
     }
   }
 
@@ -90,21 +113,44 @@ async function handleVerifyType(interaction, type) {
       if (!canSend) {
         notes.push(`⚠️ Couldn't post the report in ${reportChannel}: I don't have "Send Messages" permission there.`);
       } else {
-        const reportEmbed = new EmbedBuilder()
-          .setColor(verifyManager.TYPE_COLORS[type])
-          .setThumbnail(targetUser.displayAvatarURL())
-          .setDescription(
-            [
-              `**Member:** ${targetUser}`,
-              `**Verification:** ${verification}`,
-              `**Social:** ${social}`,
-              `**Verified on:** <t:${Math.floor(interaction.createdTimestamp / 1000)}:F>`,
-              `**User ID:** ${targetUser.id}`,
-            ].join('\n')
-          );
+        // If this user already has a report (from a previous verification), delete
+        // the old message and DB row first, so they end up with just one report.
+        const existingReport = await verifyManager.getLastReportForUser(interaction.guildId, targetUser.id);
+        if (existingReport) {
+          const oldChannel = guild.channels.cache.get(existingReport.channel_id);
+          if (oldChannel) {
+            const oldMessage = await oldChannel.messages.fetch(existingReport.message_id).catch(() => null);
+            if (oldMessage) {
+              await oldMessage.delete().catch(() => null);
+            }
+          }
+          await verifyManager.deleteReport(existingReport.id);
+        }
 
-        await reportChannel.send({ embeds: [reportEmbed] });
+        const verifiedAtSeconds = Math.floor(interaction.createdTimestamp / 1000);
+        const reportEmbed = buildReportEmbed({
+          type,
+          userMention: `${targetUser}`,
+          userAvatarURL: targetUser.displayAvatarURL(),
+          userId: targetUser.id,
+          verification,
+          social,
+          verifiedAtSeconds,
+        });
+
+        const reportMessage = await reportChannel.send({ content: `${targetUser}`, embeds: [reportEmbed] });
         notes.push(`📋 Report posted in ${reportChannel}.`);
+
+        await verifyManager.recordReport({
+          guild_id: interaction.guildId,
+          user_id: targetUser.id,
+          type,
+          channel_id: reportChannel.id,
+          message_id: reportMessage.id,
+          verification,
+          social,
+          verified_at: verifiedAtSeconds,
+        });
       }
     }
   }

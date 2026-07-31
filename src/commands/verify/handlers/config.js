@@ -1,9 +1,10 @@
 const { PermissionFlagsBits } = require('discord.js');
 const verifyManager = require('../../../features/verify/verifyManager');
 
-// Merges into one subcommand the give/remove role for all three verification types
-// (sub, domme, maledom), the report channel, and the role allowed to run those three
-// commands — provide any combination of the 8 options in a single call.
+// Merges into one subcommand the give role for all three verification types
+// (sub, domme, maledom), the single shared remove role, the report channel, and
+// the role allowed to run those three commands — provide any combination of the
+// 6 options in a single call.
 async function handleConfig(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
     await interaction.reply({
@@ -15,11 +16,9 @@ async function handleConfig(interaction) {
 
   const options = {
     subGive: interaction.options.getRole('subgive'),
-    subRemove: interaction.options.getRole('subremove'),
     dommeGive: interaction.options.getRole('dommegive'),
-    dommeRemove: interaction.options.getRole('dommeremove'),
     maledomGive: interaction.options.getRole('maledomgive'),
-    maledomRemove: interaction.options.getRole('maledomremove'),
+    remove: interaction.options.getRole('remove'),
     allowedRole: interaction.options.getRole('allowedrole'),
   };
   const channel = interaction.options.getChannel('channel');
@@ -44,11 +43,13 @@ async function handleConfig(interaction) {
   };
 
   describe('subGive', 'Sub', 'give');
-  describe('subRemove', 'Sub', 'remove (if present)');
   describe('dommeGive', 'Domme', 'give');
-  describe('dommeRemove', 'Domme', 'remove (if present)');
   describe('maledomGive', 'Maledom', 'give');
-  describe('maledomRemove', 'Maledom', 'remove (if present)');
+
+  if (options.remove) {
+    updates.remove = options.remove.id;
+    messages.push(`**Remove (shared)** → remove (if present) ${options.remove}`);
+  }
 
   if (options.allowedRole) {
     updates.allowedRole = options.allowedRole.id;
