@@ -89,14 +89,16 @@ async function handleVerifyType(interaction, type) {
         notes.push(`⚠️ Couldn't post the report in ${reportChannel}: I don't have "Send Messages" permission there.`);
       } else {
         const reportEmbed = new EmbedBuilder()
-          .setTitle(`Verification — ${label}`)
-          .setColor(0x5865f2)
-          .addFields(
-            { name: 'Member', value: `${targetUser}` },
-            { name: 'Verification', value: verification },
-            { name: 'Social', value: social },
-            { name: 'Verified on', value: `<t:${Math.floor(interaction.createdTimestamp / 1000)}:F>` },
-            { name: 'User ID', value: targetUser.id }
+          .setColor(verifyManager.TYPE_COLORS[type])
+          .setThumbnail(targetUser.displayAvatarURL())
+          .setDescription(
+            [
+              `**Member:** ${targetUser}`,
+              `**Verification:** ${verification}`,
+              `**Social:** ${social}`,
+              `**Verified on:** <t:${Math.floor(interaction.createdTimestamp / 1000)}:F>`,
+              `**User ID:** ${targetUser.id}`,
+            ].join('\n')
           );
 
         await reportChannel.send({ embeds: [reportEmbed] });

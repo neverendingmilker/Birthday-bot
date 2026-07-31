@@ -10,6 +10,13 @@ const TYPE_LABELS = {
   maledom: 'Maledom',
 };
 
+// Embed side-bar color used in the verification report, per type.
+const TYPE_COLORS = {
+  sub: 0x2ecc71, // green
+  domme: 0xe74c3c, // red
+  maledom: 0x3498db, // blue
+};
+
 async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
@@ -54,6 +61,7 @@ module.exports = {
   ValidationError,
   TYPES,
   TYPE_LABELS,
+  TYPE_COLORS,
   getGuildConfig,
   setConfig,
   getRoleIdsForType,
