@@ -1,4 +1,4 @@
-const { PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const verifyManager = require('../../../features/verify/verifyManager');
 
 // Shared logic behind /verify sub, /verify domme and /verify maledom: assigns the
@@ -15,6 +15,8 @@ async function handleVerifyType(interaction, type) {
 
   const label = verifyManager.TYPE_LABELS[type];
   const targetUser = interaction.options.getUser('user');
+  const verification = interaction.options.getString('verification');
+  const social = interaction.options.getString('social');
   const guild = interaction.guild;
 
   const config = await verifyManager.getGuildConfig(interaction.guildId);
@@ -76,9 +78,32 @@ async function handleVerifyType(interaction, type) {
     }
   }
 
-  // TODO: once the report format is defined, post it to
-  // `config.report_channel_id` here (if set) — after the role changes above,
-  // so the report reflects what actually happened (including any ⚠️ notes).
+  // Post the verification report to the configured channel (if any).
+  if (config.report_channel_id) {
+    const reportChannel = guild.channels.cache.get(config.report_channel_id);
+    if (!reportChannel) {
+      notes.push('⚠️ The configured report channel no longer exists. Set a new one with `/verify config`.');
+    } else {
+      const canSend = botMember && reportChannel.permissionsFor(botMember)?.has(PermissionFlagsBits.SendMessages);
+      if (!canSend) {
+        notes.push(`⚠️ Couldn't post the report in ${reportChannel}: I don't have "Send Messages" permission there.`);
+      } else {
+        const reportEmbed = new EmbedBuilder()
+          .setTitle(`Verification — ${label}`)
+          .setColor(0x5865f2)
+          .addFields(
+            { name: 'Member', value: `${targetUser}` },
+            { name: 'Verification', value: verification },
+            { name: 'Social', value: social },
+            { name: 'Verified on', value: `<t:${Math.floor(interaction.createdTimestamp / 1000)}:F>` },
+            { name: 'User ID', value: targetUser.id }
+          );
+
+        await reportChannel.send({ embeds: [reportEmbed] });
+        notes.push(`📋 Report posted in ${reportChannel}.`);
+      }
+    }
+  }
 
   await interaction.reply({
     content: `${targetUser} verified as **${label}**:\n${notes.join('\n')}`,

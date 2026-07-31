@@ -41,18 +41,30 @@ const data = new SlashCommandBuilder()
       .setName('sub')
       .setDescription('[Admin] Verify a user as Sub')
       .addUserOption((opt) => opt.setName('user').setDescription('User to verify').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('verification').setDescription('How the verification was done').setRequired(true)
+      )
+      .addStringOption((opt) => opt.setName('social').setDescription('Social media / handle').setRequired(true))
   )
   .addSubcommand((sub) =>
     sub
       .setName('domme')
       .setDescription('[Admin] Verify a user as Domme')
       .addUserOption((opt) => opt.setName('user').setDescription('User to verify').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('verification').setDescription('How the verification was done').setRequired(true)
+      )
+      .addStringOption((opt) => opt.setName('social').setDescription('Social media / handle').setRequired(true))
   )
   .addSubcommand((sub) =>
     sub
       .setName('maledom')
       .setDescription('[Admin] Verify a user as Maledom')
       .addUserOption((opt) => opt.setName('user').setDescription('User to verify').setRequired(true))
+      .addStringOption((opt) =>
+        opt.setName('verification').setDescription('How the verification was done').setRequired(true)
+      )
+      .addStringOption((opt) => opt.setName('social').setDescription('Social media / handle').setRequired(true))
   );
 
 async function execute(interaction) {
