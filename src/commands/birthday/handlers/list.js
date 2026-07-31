@@ -4,10 +4,8 @@ const birthdayManager = require('../../../features/birthday/birthdayManager');
 const EMBED_COLOR = 0xff6fa5;
 const MAX_FIELD_LENGTH = 1024; // Discord's limit for an embed field value
 
-function formatDate(date) {
-  const dd = String(date.getDate()).padStart(2, '0');
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm}/${date.getFullYear()}`;
+function formatDay(date) {
+  return String(date.getDate()).padStart(2, '0');
 }
 
 function formatDaysLeft(daysUntil) {
@@ -45,7 +43,7 @@ async function handleList(interaction) {
 
   for (const group of groups) {
     const lines = group.entries.map(
-      (e, i) => `${i + 1}. ${formatDate(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
+      (e, i) => `${i + 1}. ${formatDay(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
     );
 
     embed.addFields({

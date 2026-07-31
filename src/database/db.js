@@ -63,7 +63,8 @@ async function createTables() {
         domme_remove_role_id TEXT,
         maledom_give_role_id TEXT,
         maledom_remove_role_id TEXT,
-        report_channel_id TEXT
+        report_channel_id TEXT,
+        allowed_role_id TEXT
       )`,
     ],
     'write'
@@ -100,6 +101,9 @@ async function migrate() {
 
   if (!verifyColumnNames.includes('report_channel_id')) {
     await client.execute('ALTER TABLE verify_role_config ADD COLUMN report_channel_id TEXT');
+  }
+  if (!verifyColumnNames.includes('allowed_role_id')) {
+    await client.execute('ALTER TABLE verify_role_config ADD COLUMN allowed_role_id TEXT');
   }
 }
 

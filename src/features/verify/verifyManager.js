@@ -22,9 +22,10 @@ async function getGuildConfig(guildId) {
 }
 
 // Updates any combination of settings in one call: the give/remove roles for the
-// three verification types, and/or the report channel. `updates` keys (all optional,
-// pass only the ones that changed): subGive, subRemove, dommeGive, dommeRemove,
-// maledomGive, maledomRemove (role ID strings), channel (channel ID string).
+// three verification types, the report channel, and/or the role allowed to run
+// /verify sub, domme and maledom. `updates` keys (all optional, pass only the ones
+// that changed): subGive, subRemove, dommeGive, dommeRemove, maledomGive,
+// maledomRemove, allowedRole (role ID strings), channel (channel ID string).
 async function setConfig(guildId, updates) {
   const current = await repo.getGuildConfig(guildId);
 
@@ -39,6 +40,7 @@ async function setConfig(guildId, updates) {
     maledom_remove_role_id:
       updates.maledomRemove !== undefined ? updates.maledomRemove : current.maledom_remove_role_id,
     report_channel_id: updates.channel !== undefined ? updates.channel : current.report_channel_id,
+    allowed_role_id: updates.allowedRole !== undefined ? updates.allowedRole : current.allowed_role_id,
   };
 
   await repo.setGuildConfig(guildId, merged);
@@ -57,6 +59,15 @@ function getRoleIdsForType(config, type) {
   };
 }
 
+// Who can run /verify sub, domme and maledom: anyone with Manage Roles (always
+// allowed), plus — if configured via /verify config allowedrole — anyone holding
+// that specific role.
+function canUseVerifyCommands(member, config) {
+  if (member.permissions.has('ManageRoles')) return true;
+  if (config.allowed_role_id && member.roles.cache.has(config.allowed_role_id)) return true;
+  return false;
+}
+
 module.exports = {
   ValidationError,
   TYPES,
@@ -65,4 +76,5 @@ module.exports = {
   getGuildConfig,
   setConfig,
   getRoleIdsForType,
+  canUseVerifyCommands,
 };

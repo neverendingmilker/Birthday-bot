@@ -35,6 +35,12 @@ const data = new SlashCommandBuilder()
           .addChannelTypes(ChannelType.GuildText)
           .setRequired(false)
       )
+      .addRoleOption((opt) =>
+        opt
+          .setName('allowedrole')
+          .setDescription('Role (besides Manage Roles holders) allowed to use /verify sub, domme and maledom')
+          .setRequired(false)
+      )
   )
   .addSubcommand((sub) =>
     sub

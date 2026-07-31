@@ -2,8 +2,8 @@ const { PermissionFlagsBits } = require('discord.js');
 const verifyManager = require('../../../features/verify/verifyManager');
 
 // Merges into one subcommand the give/remove role for all three verification types
-// (sub, domme, maledom) plus the report channel — provide any combination of the
-// 7 options in a single call.
+// (sub, domme, maledom), the report channel, and the role allowed to run those three
+// commands — provide any combination of the 8 options in a single call.
 async function handleConfig(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
     await interaction.reply({
@@ -20,6 +20,7 @@ async function handleConfig(interaction) {
     dommeRemove: interaction.options.getRole('dommeremove'),
     maledomGive: interaction.options.getRole('maledomgive'),
     maledomRemove: interaction.options.getRole('maledomremove'),
+    allowedRole: interaction.options.getRole('allowedrole'),
   };
   const channel = interaction.options.getChannel('channel');
 
@@ -48,6 +49,13 @@ async function handleConfig(interaction) {
   describe('dommeRemove', 'Domme', 'remove (if present)');
   describe('maledomGive', 'Maledom', 'give');
   describe('maledomRemove', 'Maledom', 'remove (if present)');
+
+  if (options.allowedRole) {
+    updates.allowedRole = options.allowedRole.id;
+    messages.push(
+      `**Allowed role** → ${options.allowedRole} can now use \`/verify sub\`, \`/verify domme\` and \`/verify maledom\` (in addition to anyone with "Manage Roles").`
+    );
+  }
 
   if (channel) {
     updates.channel = channel.id;

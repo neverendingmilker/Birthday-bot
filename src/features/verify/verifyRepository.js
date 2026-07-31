@@ -1,7 +1,8 @@
 const db = require('../../database/db');
 
 // --- Guild config: which role to give / (optionally) remove for each verification
-// type, plus the channel where verification reports get posted ---
+// type, the channel where verification reports get posted, and which role (besides
+// Manage Roles holders) is allowed to run /verify sub, domme and maledom ---
 
 async function getGuildConfig(guildId) {
   await db.ready;
@@ -21,6 +22,7 @@ async function getGuildConfig(guildId) {
         maledom_give_role_id: row.maledom_give_role_id,
         maledom_remove_role_id: row.maledom_remove_role_id,
         report_channel_id: row.report_channel_id,
+        allowed_role_id: row.allowed_role_id,
       }
     : {
         guild_id: guildId,
@@ -31,17 +33,18 @@ async function getGuildConfig(guildId) {
         maledom_give_role_id: null,
         maledom_remove_role_id: null,
         report_channel_id: null,
+        allowed_role_id: null,
       };
 }
 
-// Always writes all 7 columns (the manager merges with the existing row first, so
+// Always writes all 8 columns (the manager merges with the existing row first, so
 // callers never need to worry about accidentally clearing a value that wasn't touched).
 async function setGuildConfig(guildId, fields) {
   await db.ready;
   await db.client.execute({
     sql: `INSERT INTO verify_role_config
-            (guild_id, sub_give_role_id, sub_remove_role_id, domme_give_role_id, domme_remove_role_id, maledom_give_role_id, maledom_remove_role_id, report_channel_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (guild_id, sub_give_role_id, sub_remove_role_id, domme_give_role_id, domme_remove_role_id, maledom_give_role_id, maledom_remove_role_id, report_channel_id, allowed_role_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(guild_id) DO UPDATE SET
             sub_give_role_id = excluded.sub_give_role_id,
             sub_remove_role_id = excluded.sub_remove_role_id,
@@ -49,7 +52,8 @@ async function setGuildConfig(guildId, fields) {
             domme_remove_role_id = excluded.domme_remove_role_id,
             maledom_give_role_id = excluded.maledom_give_role_id,
             maledom_remove_role_id = excluded.maledom_remove_role_id,
-            report_channel_id = excluded.report_channel_id`,
+            report_channel_id = excluded.report_channel_id,
+            allowed_role_id = excluded.allowed_role_id`,
     args: [
       guildId,
       fields.sub_give_role_id,
@@ -59,6 +63,7 @@ async function setGuildConfig(guildId, fields) {
       fields.maledom_give_role_id,
       fields.maledom_remove_role_id,
       fields.report_channel_id,
+      fields.allowed_role_id,
     ],
   });
 }

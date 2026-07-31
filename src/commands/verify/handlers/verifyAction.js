@@ -5,14 +5,6 @@ const verifyManager = require('../../../features/verify/verifyManager');
 // role configured (via /verify config) for that type, and removes the paired
 // "remove" role if the member currently holds it.
 async function handleVerifyType(interaction, type) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
-    await interaction.reply({
-      content: '❌ You need the "Manage Roles" permission to use this command.',
-      ephemeral: true,
-    });
-    return;
-  }
-
   const label = verifyManager.TYPE_LABELS[type];
   const targetUser = interaction.options.getUser('user');
   const verification = interaction.options.getString('verification');
@@ -20,6 +12,16 @@ async function handleVerifyType(interaction, type) {
   const guild = interaction.guild;
 
   const config = await verifyManager.getGuildConfig(interaction.guildId);
+
+  if (!verifyManager.canUseVerifyCommands(interaction.member, config)) {
+    await interaction.reply({
+      content:
+        '❌ You need the "Manage Roles" permission, or the role configured via `/verify config allowedrole`, to use this command.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   const { giveRoleId, removeRoleId } = verifyManager.getRoleIdsForType(config, type);
 
   if (!giveRoleId) {
