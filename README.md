@@ -20,6 +20,11 @@ src/
         list.js
         last.js
         edit.js
+    verify/
+      index.js       (defines /verify config, sub, domme, maledom)
+      handlers/
+        config.js    (configures the give/remove roles for the 3 types + report channel, merged into one subcommand)
+        verifyAction.js (shared logic used by sub/domme/maledom, not a subcommand itself)
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -28,6 +33,9 @@ src/
     animenight/
       animeNightManager.js     (validation, title/date parsing, sessions, sorting)
       animeNightRepository.js  (SQL queries)
+    verify/
+      verifyManager.js     (validation and rules)
+      verifyRepository.js  (SQL queries)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -81,6 +89,18 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 - `/animenight list [order]` — shows the watch list as an embed **grouped by session** (10 sessions per page), paginated with ◀ Previous / Next ▶ buttons once there are more than 10. Sessions always appear in chronological order; `order` only controls how titles are sorted *within* each session — `alphabetical` (default) or `added` (the order they were added in).
 - `/animenight last` — shows every anime from the most recent Mystery Anime Night **session** (i.e. the latest distinct date), not just the last few inserted rows. Also paginated if that session has many entries.
 - `/animenight edit session:<...> [titles] [date]` — **admin**: edits an existing session. The `session` option has autocomplete — start typing and Discord suggests matching sessions (e.g. "Mystery Anime Night 3 — 23/10/2026 (5 anime)"), most recent first. Provide `titles` to replace the whole anime list for that session, `date` to move it to a different day (moving it onto an existing session's date merges the two), or both. Session numbers are computed dynamically from chronological order, so they stay correct even after edits.
+
+## Available commands (Verify feature)
+
+All `/verify` subcommands require the **Manage Roles** permission.
+
+- `/verify config [subgive] [subremove] [dommegive] [dommeremove] [maledomgive] [maledomremove] [channel]` — configures any combination of the following in one call:
+  - `subgive` / `dommegive` / `maledomgive` — the role assigned by `/verify sub`, `/verify domme`, `/verify maledom` respectively.
+  - `subremove` / `dommeremove` / `maledomremove` — an **optional** role to strip from the member (if they currently have it) when that command is run — e.g. remove a generic "Unverified" or "Findomme" role once the specific Verified role is granted.
+  - `channel:<#channel>` — the text channel where verification reports are posted (report format: TBD).
+- `/verify sub user:<@user>` / `/verify domme user:<@user>` / `/verify maledom user:<@user>` — assigns the configured "give" role for that type (no-op if the member already has it), and removes the configured "remove" role for that type if the member currently holds it.
+
+Each of the three types is independent — e.g. running `/verify domme` never touches the sub or maledom roles unless you explicitly configured them to overlap. The bot's role must be higher than every role it needs to touch (both give and remove), otherwise it reports which one it couldn't apply instead of failing silently. Running `/verify sub|domme|maledom` before `/verify config` has been set up for that type replies with a reminder instead of doing anything.
 
 ## Hosting
 

@@ -55,6 +55,16 @@ async function createTables() {
         added_at INTEGER NOT NULL,
         added_by TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS verify_role_config (
+        guild_id TEXT PRIMARY KEY,
+        sub_give_role_id TEXT,
+        sub_remove_role_id TEXT,
+        domme_give_role_id TEXT,
+        domme_remove_role_id TEXT,
+        maledom_give_role_id TEXT,
+        maledom_remove_role_id TEXT,
+        report_channel_id TEXT
+      )`,
     ],
     'write'
   );
@@ -84,6 +94,13 @@ async function migrate() {
   await client.execute(
     'UPDATE birthday_guild_config SET remove_after_seconds = 86400 WHERE remove_after_seconds IS NULL'
   );
+
+  const verifyColumns = await client.execute('PRAGMA table_info(verify_role_config)');
+  const verifyColumnNames = verifyColumns.rows.map((row) => row.name);
+
+  if (!verifyColumnNames.includes('report_channel_id')) {
+    await client.execute('ALTER TABLE verify_role_config ADD COLUMN report_channel_id TEXT');
+  }
 }
 
 const ready = createTables()
