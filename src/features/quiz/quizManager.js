@@ -166,6 +166,9 @@ function sleep(ms) {
 }
 
 function createResourceFromUrl(url) {
+  const startedAt = Date.now();
+  console.log(`[quiz][${startedAt}] Fetching/transcoding: ${url}`);
+
   const transcoder = new FFmpeg({
     args: [
       '-analyzeduration', '0',
@@ -177,14 +180,25 @@ function createResourceFromUrl(url) {
     ],
   });
 
+  let totalBytes = 0;
+
   // Without this, an ffmpeg failure (bad URL, network issue, missing codec,
   // etc.) fails SILENTLY: the resource just produces no audio and the round
   // times out with nothing audible, no error shown anywhere.
   transcoder.process.stderr?.on('data', (chunk) => {
-    console.error('[quiz][ffmpeg]', chunk.toString().trim());
+    console.error(`[quiz][ffmpeg][+${Date.now() - startedAt}ms]`, chunk.toString().trim());
   });
   transcoder.on('error', (err) => {
-    console.error('[quiz][ffmpeg] transcoder stream error:', err);
+    console.error(`[quiz][ffmpeg][+${Date.now() - startedAt}ms] transcoder stream error:`, err);
+  });
+  transcoder.on('data', (chunk) => {
+    totalBytes += chunk.length;
+  });
+  transcoder.on('end', () => {
+    console.log(
+      `[quiz][+${Date.now() - startedAt}ms] ffmpeg stream ended. Total PCM bytes produced: ${totalBytes} ` +
+        `(~${(totalBytes / (48000 * 2 * 2)).toFixed(1)}s of audio at 48kHz stereo)`
+    );
   });
 
   const resource = createAudioResource(transcoder, { inputType: StreamType.Raw });
@@ -212,20 +226,20 @@ async function startQuiz(guild, voiceChannel, textChannel, options) {
   });
 
   state.voiceConnection.on('error', (err) => {
-    console.error('[quiz] Voice connection error:', err);
+    console.error(`[quiz][${Date.now()}] Voice connection error:`, err);
   });
   state.voiceConnection.on('stateChange', (oldState, newState) => {
-    console.log(`[quiz] Voice connection: ${oldState.status} -> ${newState.status}`);
+    console.log(`[quiz][${Date.now()}] Voice connection: ${oldState.status} -> ${newState.status}`);
   });
 
   await entersState(state.voiceConnection, VoiceConnectionStatus.Ready, 15000);
 
   state.audioPlayer = createAudioPlayer();
   state.audioPlayer.on('error', (err) => {
-    console.error('[quiz] Audio player error:', err);
+    console.error(`[quiz][${Date.now()}] Audio player error:`, err);
   });
   state.audioPlayer.on('stateChange', (oldState, newState) => {
-    console.log(`[quiz] Audio player: ${oldState.status} -> ${newState.status}`);
+    console.log(`[quiz][${Date.now()}] Audio player: ${oldState.status} -> ${newState.status}`);
   });
   state.voiceConnection.subscribe(state.audioPlayer);
 
