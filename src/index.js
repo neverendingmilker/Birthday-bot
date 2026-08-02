@@ -13,6 +13,9 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers, // needed to assign/remove roles and fetch members
+    GatewayIntentBits.GuildVoiceStates, // needed by the quiz feature to join/play in voice channels
+    GatewayIntentBits.GuildMessages, // needed by the quiz feature to read chat answers
+    GatewayIntentBits.MessageContent, // needed by the quiz feature to read chat answers' text
   ],
 });
 

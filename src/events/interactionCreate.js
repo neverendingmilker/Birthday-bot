@@ -14,6 +14,19 @@ module.exports = {
       return;
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('quiz:choice:')) {
+      try {
+        const quizManager = require('../features/quiz/quizManager');
+        await quizManager.handleButtonAnswer(interaction);
+      } catch (err) {
+        console.error('Error handling quiz answer button:', err);
+        await interaction
+          .reply({ content: '⚠️ An error occurred while recording your answer.', ephemeral: true })
+          .catch(() => null);
+      }
+      return;
+    }
+
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('vfedit:select:')) {
       try {
         const { handleEditSelect } = require('../commands/verify/handlers/editInteractions');

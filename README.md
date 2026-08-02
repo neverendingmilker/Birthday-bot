@@ -102,6 +102,31 @@ All `/verify` subcommands require the **Manage Roles** permission.
 
 Each of the three types is independent — e.g. running `/verify domme` never touches the sub or maledom roles unless you explicitly configured them to overlap. The bot's role must be higher than every role it needs to touch (both give and remove), otherwise it reports which one it couldn't apply instead of failing silently. Running `/verify sub|domme|maledom` before `/verify config` has been set up for that type replies with a reminder instead of doing anything.
 
+## Available commands (Music quiz feature)
+
+The bot joins a voice channel, plays short previews of songs (from Spotify,
+Deezer, or iTunes/Apple Music), and awards points to whoever guesses the
+title/artist in chat, or picks the right answer from 4 buttons.
+
+- `/quiz start songs:<n> mode:<open_answer|multiple_choice> [source] [category] [artist] [duration]` — starts the quiz. You need to be in a voice channel.
+  - `songs` — how many songs to play.
+  - `mode` — **Open answer**: type the title (+2 pts) / artist (+1 pt) in chat, first correct guess wins each. **Multiple choice**: 4 buttons under the round message; one attempt per person, answers are ephemeral (private) so nobody spoils it for others, first correct click gets +3 pts. The round ends early once everyone in the voice channel has answered.
+  - `source` (optional) — a Spotify/Deezer/iTunes playlist or single-track link, or multiple links separated by commas (can mix all three services). Leave empty for random songs.
+  - `category` (optional, has autocomplete, ignored if `source` or `artist` is set) — a music genre, or a special category (decades 70s–2020s, Recent Hits, Trending Now, J-Pop, J-Rock, K-Pop, Anime).
+  - `artist` (optional, has autocomplete, ignored if `source` is set) — plays that artist's most popular songs; tolerates typos (e.g. "Evanescene" still finds "Evanescence").
+  - `duration` (optional) — seconds per round, default 30 (or `QUIZ_ROUND_DURATION_SECONDS` in `.env`).
+- `/quiz stop` — stops the quiz early and disconnects from voice.
+- `/quiz leaderboard` — shows the server's all-time leaderboard.
+- `/quiz reset` — resets the server's leaderboard.
+- `/quiz help` — shows an in-Discord summary of the rules above.
+
+**Extra setup required for this feature:**
+1. Enable the **Message Content Intent** in the Discord Developer Portal (Bot → Privileged Gateway Intents) — needed to read chat answers in open-answer mode.
+2. Create a Spotify app at https://developer.spotify.com/dashboard (Client Credentials Flow only, no user login) and add `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` to `.env`. Optional: without it, Spotify links won't work, but Deezer/iTunes links and random/category/artist modes work regardless.
+   - ⚠️ Spotify now requires the app-owning account to have an active **Premium** subscription, otherwise Spotify requests fail with a 403. Deezer and iTunes have no such requirement.
+3. `ffmpeg` is bundled automatically via the `ffmpeg-static` npm package — no system install needed.
+4. Node.js **22.12 or newer** is required (bumped from the previous >=18 requirement) because `@discordjs/voice`'s DAVE protocol support (mandatory on Discord's voice gateway since March 2026) depends on it.
+
 ## Hosting
 
 The bot must stay **connected 24/7** (it's not an "on-demand" webapp), so avoid hosting that puts the process to sleep on inactivity without a way to "wake it up". The database is external (Turso), so the data stays safe no matter how/where the bot's process gets restarted.
