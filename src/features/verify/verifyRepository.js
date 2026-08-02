@@ -1,13 +1,11 @@
 const db = require('../../database/db');
 
-// --- Guild config: which role to give / (optionally) remove for each verification
-// type, the channel where verification reports get posted, and which role (besides
-// Manage Roles holders) is allowed to run /verify sub, domme and maledom ---
+// --- Guild config (which roles to assign, where to post reports) ---
 
 async function getGuildConfig(guildId) {
   await db.ready;
   const result = await db.client.execute({
-    sql: 'SELECT * FROM verify_role_config WHERE guild_id = ?',
+    sql: 'SELECT * FROM verify_guild_config WHERE guild_id = ?',
     args: [guildId],
   });
 
@@ -15,133 +13,85 @@ async function getGuildConfig(guildId) {
   return row
     ? {
         guild_id: row.guild_id,
-        sub_give_role_id: row.sub_give_role_id,
-        domme_give_role_id: row.domme_give_role_id,
-        maledom_give_role_id: row.maledom_give_role_id,
-        remove_role_id: row.remove_role_id,
-        report_channel_id: row.report_channel_id,
-        allowed_role_id: row.allowed_role_id,
+        findom_role_id: row.findom_role_id,
+        sub_role_id: row.sub_role_id,
+        verified_channel_id: row.verified_channel_id,
       }
-    : {
-        guild_id: guildId,
-        sub_give_role_id: null,
-        domme_give_role_id: null,
-        maledom_give_role_id: null,
-        remove_role_id: null,
-        report_channel_id: null,
-        allowed_role_id: null,
-      };
+    : { guild_id: guildId, findom_role_id: null, sub_role_id: null, verified_channel_id: null };
 }
 
-// Always writes all 6 columns (the manager merges with the existing row first, so
-// callers never need to worry about accidentally clearing a value that wasn't touched).
-async function setGuildConfig(guildId, fields) {
+async function setFindomRole(guildId, roleId) {
   await db.ready;
   await db.client.execute({
-    sql: `INSERT INTO verify_role_config
-            (guild_id, sub_give_role_id, domme_give_role_id, maledom_give_role_id, remove_role_id, report_channel_id, allowed_role_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(guild_id) DO UPDATE SET
-            sub_give_role_id = excluded.sub_give_role_id,
-            domme_give_role_id = excluded.domme_give_role_id,
-            maledom_give_role_id = excluded.maledom_give_role_id,
-            remove_role_id = excluded.remove_role_id,
-            report_channel_id = excluded.report_channel_id,
-            allowed_role_id = excluded.allowed_role_id`,
-    args: [
-      guildId,
-      fields.sub_give_role_id,
-      fields.domme_give_role_id,
-      fields.maledom_give_role_id,
-      fields.remove_role_id,
-      fields.report_channel_id,
-      fields.allowed_role_id,
-    ],
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, ?, NULL, NULL)
+          ON CONFLICT(guild_id) DO UPDATE SET findom_role_id = excluded.findom_role_id`,
+    args: [guildId, roleId],
   });
 }
 
-// --- Verification reports: one row per posted report embed, so it can be found
-// again later (by user) and edited via /verify edit ---
-
-function parseReportRow(row) {
-  return {
-    id: row.id,
-    guild_id: row.guild_id,
-    user_id: row.user_id,
-    type: row.type,
-    channel_id: row.channel_id,
-    message_id: row.message_id,
-    verification: row.verification,
-    social: row.social,
-    verified_at: row.verified_at,
-    moderator_id: row.moderator_id,
-  };
-}
-
-async function insertReport(report) {
-  await db.ready;
-  const result = await db.client.execute({
-    sql: `INSERT INTO verify_reports
-            (guild_id, user_id, type, channel_id, message_id, verification, social, verified_at, moderator_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      report.guild_id,
-      report.user_id,
-      report.type,
-      report.channel_id,
-      report.message_id,
-      report.verification,
-      report.social,
-      report.verified_at,
-      report.moderator_id,
-    ],
-  });
-  return Number(result.lastInsertRowid);
-}
-
-// The most recent report for this user in this guild, regardless of type (sub,
-// domme or maledom) — matches "edit the last one" when several exist.
-async function getLastReportForUser(guildId, userId) {
-  await db.ready;
-  const result = await db.client.execute({
-    sql: 'SELECT * FROM verify_reports WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1',
-    args: [guildId, userId],
-  });
-  return result.rows[0] ? parseReportRow(result.rows[0]) : null;
-}
-
-async function getReportById(id) {
-  await db.ready;
-  const result = await db.client.execute({
-    sql: 'SELECT * FROM verify_reports WHERE id = ?',
-    args: [id],
-  });
-  return result.rows[0] ? parseReportRow(result.rows[0]) : null;
-}
-
-async function deleteReport(id) {
+async function setSubRole(guildId, roleId) {
   await db.ready;
   await db.client.execute({
-    sql: 'DELETE FROM verify_reports WHERE id = ?',
-    args: [id],
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, NULL, ?, NULL)
+          ON CONFLICT(guild_id) DO UPDATE SET sub_role_id = excluded.sub_role_id`,
+    args: [guildId, roleId],
   });
 }
 
-// `field` must be 'verification' or 'social' — validated by the caller (manager).
-async function updateReportField(id, field, value) {
+async function setVerifiedChannel(guildId, channelId) {
   await db.ready;
   await db.client.execute({
-    sql: `UPDATE verify_reports SET ${field} = ? WHERE id = ?`,
-    args: [value, id],
+    sql: `INSERT INTO verify_guild_config (guild_id, findom_role_id, sub_role_id, verified_channel_id)
+          VALUES (?, NULL, NULL, ?)
+          ON CONFLICT(guild_id) DO UPDATE SET verified_channel_id = excluded.verified_channel_id`,
+    args: [guildId, channelId],
+  });
+}
+
+// --- Verification records (one per guild + user + type) ---
+
+async function upsertVerification(guildId, userId, type, social, method, verifiedAt, verifiedBy, channelId, messageId) {
+  await db.ready;
+  await db.client.execute({
+    sql: `INSERT INTO verify_entries
+            (guild_id, user_id, type, social, method, verified_at, verified_by, channel_id, message_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(guild_id, user_id, type) DO UPDATE SET
+            social = excluded.social,
+            method = excluded.method,
+            verified_at = excluded.verified_at,
+            verified_by = excluded.verified_by,
+            channel_id = excluded.channel_id,
+            message_id = excluded.message_id`,
+    args: [guildId, userId, type, social, method, verifiedAt, verifiedBy, channelId, messageId],
+  });
+}
+
+async function getVerification(guildId, userId, type) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT * FROM verify_entries WHERE guild_id = ? AND user_id = ? AND type = ?',
+    args: [guildId, userId, type],
+  });
+  return result.rows[0] || null;
+}
+
+async function updateVerificationFields(guildId, userId, type, social, method) {
+  await db.ready;
+  await db.client.execute({
+    sql: 'UPDATE verify_entries SET social = ?, method = ? WHERE guild_id = ? AND user_id = ? AND type = ?',
+    args: [social, method, guildId, userId, type],
   });
 }
 
 module.exports = {
   getGuildConfig,
-  setGuildConfig,
-  insertReport,
-  getLastReportForUser,
-  getReportById,
-  updateReportField,
-  deleteReport,
+  setFindomRole,
+  setSubRole,
+  setVerifiedChannel,
+  upsertVerification,
+  getVerification,
+  updateVerificationFields,
 };

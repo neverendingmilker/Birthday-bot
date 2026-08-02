@@ -1,44 +1,59 @@
-const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const verifyManager = require('../../../features/verify/verifyManager');
 
-// /verify edit user:<@user> — finds that user's most recent verification report
-// (regardless of type) and lets the admin pick which field to change.
 async function handleEdit(interaction) {
-  const config = await verifyManager.getGuildConfig(interaction.guildId);
-
-  if (!verifyManager.canUseVerifyCommands(interaction.member, config)) {
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
     await interaction.reply({
-      content:
-        '❌ You need the "Manage Roles" permission, or the role configured via `/verify config allowedrole`, to use this command.',
+      content: '❌ You need the "Manage Roles" permission to use this command.',
       ephemeral: true,
     });
     return;
   }
 
   const targetUser = interaction.options.getUser('user');
-  const report = await verifyManager.getLastReportForUser(interaction.guildId, targetUser.id);
+  const type = interaction.options.getString('type'); // 'findom' | 'sub'
+  const socialInput = interaction.options.getString('social'); // null if not provided
+  const methodInput = interaction.options.getString('method'); // null if not provided
 
-  if (!report) {
-    await interaction.reply({
-      content: `⚠️ No verification report found for ${targetUser}.`,
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(`vfedit:select:${report.id}`)
-    .setPlaceholder('What do you want to edit?')
-    .addOptions(
-      { label: 'Verification', description: 'Edit the "Verification" field', value: 'verification' },
-      { label: 'Social', description: 'Edit the "Social" field', value: 'social' }
+  try {
+    const updated = await verifyManager.editVerification(
+      interaction.guildId,
+      targetUser.id,
+      type,
+      socialInput === null ? undefined : socialInput,
+      methodInput === null ? undefined : methodInput
     );
 
-  await interaction.reply({
-    content: `What do you want to edit for ${targetUser}'s ${verifyManager.TYPE_LABELS[report.type]} verification report?`,
-    components: [new ActionRowBuilder().addComponents(select)],
-    ephemeral: true,
-  });
+    let note = '';
+
+    if (updated.channel_id && updated.message_id) {
+      const channel = interaction.guild.channels.cache.get(updated.channel_id);
+      const originalMessage = channel
+        ? await channel.messages.fetch(updated.message_id).catch(() => null)
+        : null;
+
+      if (originalMessage && originalMessage.embeds[0]) {
+        const newEmbed = EmbedBuilder.from(originalMessage.embeds[0])
+          .spliceFields(1, 1, { name: 'Social', value: updated.social || 'N/A' })
+          .spliceFields(2, 1, { name: 'Verification', value: updated.method });
+        await originalMessage.edit({ embeds: [newEmbed] });
+      } else {
+        note = "\n⚠️ Couldn't find the original report message to update it, but the record itself was updated.";
+      }
+    }
+
+    const typeLabel = type === 'findom' ? 'Findom' : 'Sub';
+    await interaction.reply({
+      content: `✏️ ${typeLabel} verification updated for ${targetUser}.${note}`,
+      ephemeral: true,
+    });
+  } catch (err) {
+    if (err instanceof verifyManager.ValidationError) {
+      await interaction.reply({ content: `⚠️ ${err.message}`, ephemeral: true });
+    } else {
+      throw err;
+    }
+  }
 }
 
 module.exports = { handleEdit };

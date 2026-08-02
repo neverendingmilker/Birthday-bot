@@ -11,7 +11,9 @@ src/
       index.js       (defines /birthday and its subcommands, calls the handlers)
       handlers/
         add.js
-        config.js    (role + removal timer + greeting channel, merged into one subcommand)
+        role.js
+        removerole.js
+        channel.js
         list.js
     animenight/
       index.js       (defines /animenight and its subcommands + autocomplete, calls the handlers)
@@ -21,10 +23,14 @@ src/
         last.js
         edit.js
     verify/
-      index.js       (defines /verify config, sub, domme, maledom)
+      index.js       (defines /verify and its subcommands, calls the handlers)
       handlers/
-        config.js    (configures the give/remove roles for the 3 types + report channel, merged into one subcommand)
-        verifyAction.js (shared logic used by sub/domme/maledom, not a subcommand itself)
+        findom.js
+        sub.js
+        edit.js
+        roles.js
+        channel.js
+        verifyAction.js (shared helper used by findom.js and sub.js, not a subcommand itself)
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -74,12 +80,10 @@ No existing file needs to change to add a feature (except the optional scheduler
 ## Available commands (birthday feature)
 
 - `/birthday add day:<1-31> month:<1-12> [year] [user]` — anyone can save their own birthday. If today happens to be that date, the birthday role is assigned right away. The optional `user` option lets an **admin (Manage Roles permission)** set someone else's birthday instead of their own.
-- `/birthday remove [user]` — anyone can remove their own saved birthday. The optional `user` option lets an **admin (Manage Roles permission)** remove someone else's instead.
-- `/birthday config [role] [removeafter] [channel]` — **admin (Manage Roles permission)**: configures any combination of the three settings in one call:
-  - `role:<@role>` — the role to assign on someone's birthday. Also checks the bot's role hierarchy and immediately assigns the role to anyone already celebrating today.
-  - `removeafter:<duration>` — after how long to remove the role. Accepts a number followed by a unit: `s` (seconds), `m` (minutes), `h` (hours), `d` (days) — e.g. `30s`, `10m`, `24h`, `3d`. Minimum 10 seconds, maximum 30 days, default 24h.
-  - `channel:<#channel>` — the text channel where automatic birthday greetings are posted. Also greets anyone already celebrating today, right away.
-- `/birthday list` — shows an embed with every birthday in the server, grouped by calendar month **starting from January** (not by who's coming up soonest), sorted by day within each month; each entry still shows a day countdown to its next occurrence.
+- `/birthday role role:<@role>` — **admin (Manage Roles permission)**: sets the role to assign on someone's birthday. Also checks the bot's role hierarchy and immediately assigns the role to anyone already celebrating today.
+- `/birthday removerole timer:<duration>` — **admin**: sets after how long to remove the role. Accepts a number followed by a unit: `s` (seconds), `m` (minutes), `h` (hours), `d` (days) — e.g. `30s`, `10m`, `24h`, `3d`. Minimum 10 seconds, maximum 30 days, default 24h.
+- `/birthday channel channel:<#channel>` — **admin**: sets the text channel where automatic birthday greetings are posted. Also greets anyone already celebrating today, right away.
+- `/birthday list` — shows an embed with every birthday in the server, grouped by month and sorted by the soonest upcoming, with a day countdown for each.
 
 Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's celebrating and assigns the role / posts the greeting automatically; a periodic check (every 10 seconds, to support the short timers above) removes the role once the configured timer has expired. The role and the greeting are also triggered immediately (without waiting for midnight) whenever someone adds a birthday that happens to be today, or when an admin configures the role/channel while someone is already celebrating. The role and the greeting are independent of each other — a server can use either, both, or neither.
 
@@ -94,13 +98,13 @@ Every day at midnight (timezone set via `TZ` in `.env`) the bot checks who's cel
 
 All `/verify` subcommands require the **Manage Roles** permission.
 
-- `/verify config [verified_sub] [subremove] [verified_domme] [dommeremove] [verified_maledom] [maledomremove] [channel]` — configures any combination of the following in one call:
-  - `verified_sub` / `verified_domme` / `verified_maledom` — the role assigned by `/verify sub`, `/verify domme`, `/verify maledom` respectively.
-  - `subremove` / `dommeremove` / `maledomremove` — an **optional** role to strip from the member (if they currently have it) when that command is run — e.g. remove a generic "Unverified" or "Findomme" role once the specific Verified role is granted.
-  - `channel:<#channel>` — the text channel where verification reports are posted (report format: TBD).
-- `/verify sub user:<@user>` / `/verify domme user:<@user>` / `/verify maledom user:<@user>` — assigns the configured "give" role for that type (no-op if the member already has it), and removes the configured "remove" role for that type if the member currently holds it.
+- `/verify roles [findom] [sub]` — sets the role assigned by `/verify findom` and/or `/verify sub`. Provide either or both.
+- `/verify channel channel:<#channel>` — sets the text channel where verification reports are posted.
+- `/verify findom user:<@user> method:<...> [social]` — verifies someone as Findom: assigns the configured Findom role and posts a report to the configured channel with Member, Social (or "N/A" if omitted), Verification (the `method` value), Verified on (date/time), User ID, and Verified by (the admin who ran the command).
+- `/verify sub user:<@user> method:<...> [social]` — same as above, but assigns the Sub role and posts a "Sub Verification" report instead.
+- `/verify edit user:<@user> type:<Findom|Sub> [social] [method]` — edits the Social and/or Method of an existing verification. If the original report message can still be found, it's edited in place to match; otherwise you're told the record was updated but the message couldn't be found.
 
-Each of the three types is independent — e.g. running `/verify domme` never touches the sub or maledom roles unless you explicitly configured them to overlap. The bot's role must be higher than every role it needs to touch (both give and remove), otherwise it reports which one it couldn't apply instead of failing silently. Running `/verify sub|domme|maledom` before `/verify config` has been set up for that type replies with a reminder instead of doing anything.
+Running `/verify findom` or `/verify sub` again on an already-verified user overwrites their previous record and posts a brand new report (treated as a fresh verification); use `/verify edit` instead if you just need to fix a typo in an existing one.
 
 ## Hosting
 

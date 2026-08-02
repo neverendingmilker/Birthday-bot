@@ -4,8 +4,10 @@ const birthdayManager = require('../../../features/birthday/birthdayManager');
 const EMBED_COLOR = 0xff6fa5;
 const MAX_FIELD_LENGTH = 1024; // Discord's limit for an embed field value
 
-function formatDay(date) {
-  return String(date.getDate()).padStart(2, '0');
+function formatDate(date) {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${date.getFullYear()}`;
 }
 
 function formatDaysLeft(daysUntil) {
@@ -20,7 +22,7 @@ function truncate(text, max) {
 }
 
 async function handleList(interaction) {
-  const groups = await birthdayManager.getBirthdaysGroupedByMonth(interaction.guildId);
+  const groups = await birthdayManager.getUpcomingBirthdaysGroupedByMonth(interaction.guildId);
 
   if (groups.length === 0) {
     await interaction.reply({
@@ -32,7 +34,7 @@ async function handleList(interaction) {
 
   const embed = new EmbedBuilder()
     .setColor(EMBED_COLOR)
-    .setTitle(`🎂 Birthdays — ${interaction.guild.name}`)
+    .setTitle(`🎂 Upcoming birthdays — ${interaction.guild.name}`)
     .setFooter({
       text: `Requested by ${interaction.user.username}`,
       iconURL: interaction.user.displayAvatarURL(),
@@ -43,7 +45,7 @@ async function handleList(interaction) {
 
   for (const group of groups) {
     const lines = group.entries.map(
-      (e, i) => `${i + 1}. ${formatDay(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
+      (e, i) => `${i + 1}. ${formatDate(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
     );
 
     embed.addFields({
