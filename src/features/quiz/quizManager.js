@@ -22,6 +22,7 @@ const {
 } = require('@discordjs/voice');
 const { FFmpeg } = require('prism-media');
 const ffmpegPath = require('ffmpeg-static');
+console.log(`[quiz] Using bundled ffmpeg binary: ${ffmpegPath}`);
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -33,7 +34,10 @@ const quizRepository = require('./quizRepository');
 const { isCloseMatch, anyArtistMatch } = require('./matching');
 const { resolvePlayableUrl } = require('./musicSource');
 
-process.env.FFMPEG_PATH = process.env.FFMPEG_PATH || ffmpegPath;
+// NOTE: this version of prism-media resolves the ffmpeg binary by directly
+// require()-ing 'ffmpeg-static' itself (see FFmpeg.getInfo() in its source),
+// it does NOT read an FFMPEG_PATH env var, so there is nothing to configure
+// here — as long as 'ffmpeg-static' is installed, it's picked up automatically.
 
 const SECONDS_BETWEEN_ROUNDS = 5;
 const MAX_TRACK_FETCH_ATTEMPTS = 5;
@@ -165,14 +169,26 @@ function createResourceFromUrl(url) {
   const transcoder = new FFmpeg({
     args: [
       '-analyzeduration', '0',
-      '-loglevel', '0',
+      '-loglevel', 'warning', // was "0" (silent): errors were being swallowed silently
       '-i', url,
       '-f', 's16le',
       '-ar', '48000',
       '-ac', '2',
     ],
   });
-  return createAudioResource(transcoder, { inputType: StreamType.Raw });
+
+  // Without this, an ffmpeg failure (bad URL, network issue, missing codec,
+  // etc.) fails SILENTLY: the resource just produces no audio and the round
+  // times out with nothing audible, no error shown anywhere.
+  transcoder.process.stderr?.on('data', (chunk) => {
+    console.error('[quiz][ffmpeg]', chunk.toString().trim());
+  });
+  transcoder.on('error', (err) => {
+    console.error('[quiz][ffmpeg] transcoder stream error:', err);
+  });
+
+  const resource = createAudioResource(transcoder, { inputType: StreamType.Raw });
+  return resource;
 }
 
 /**
@@ -191,10 +207,26 @@ async function startQuiz(guild, voiceChannel, textChannel, options) {
     channelId: voiceChannel.id,
     guildId: guild.id,
     adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: false, // was defaulting to true (library default), unrelated to server permissions
+    selfMute: false,
   });
+
+  state.voiceConnection.on('error', (err) => {
+    console.error('[quiz] Voice connection error:', err);
+  });
+  state.voiceConnection.on('stateChange', (oldState, newState) => {
+    console.log(`[quiz] Voice connection: ${oldState.status} -> ${newState.status}`);
+  });
+
   await entersState(state.voiceConnection, VoiceConnectionStatus.Ready, 15000);
 
   state.audioPlayer = createAudioPlayer();
+  state.audioPlayer.on('error', (err) => {
+    console.error('[quiz] Audio player error:', err);
+  });
+  state.audioPlayer.on('stateChange', (oldState, newState) => {
+    console.log(`[quiz] Audio player: ${oldState.status} -> ${newState.status}`);
+  });
   state.voiceConnection.subscribe(state.audioPlayer);
 
   runQuizLoop(guild.id, options.rounds, options.roundDuration, options.mode).catch((err) => {
