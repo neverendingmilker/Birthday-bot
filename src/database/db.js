@@ -76,13 +76,6 @@ async function createTables() {
         verified_at INTEGER NOT NULL,
         moderator_id TEXT
       )`,
-      `CREATE TABLE IF NOT EXISTS quiz_scores (
-        guild_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        points INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (guild_id, user_id)
-      )`,
     ],
     'write'
   );

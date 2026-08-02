@@ -11,13 +11,4 @@ module.exports = {
     url: process.env.TURSO_DATABASE_URL,
     authToken: process.env.TURSO_AUTH_TOKEN,
   },
-
-  spotify: {
-    clientId: process.env.SPOTIFY_CLIENT_ID,
-    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  },
-
-  quiz: {
-    roundDurationSeconds: Number(process.env.QUIZ_ROUND_DURATION_SECONDS || 30),
-  },
 };
