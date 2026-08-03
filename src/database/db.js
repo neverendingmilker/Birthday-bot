@@ -85,6 +85,24 @@ async function createTables() {
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (guild_id, channel_id)
       )`,
+      `CREATE TABLE IF NOT EXISTS suggestion_config (
+        guild_id TEXT PRIMARY KEY,
+        channel_id TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        channel_id TEXT NOT NULL,
+        message_id TEXT,
+        created_at INTEGER NOT NULL,
+        decided_by TEXT,
+        decided_at INTEGER,
+        UNIQUE (guild_id, number)
+      )`,
     ],
     'write'
   );
