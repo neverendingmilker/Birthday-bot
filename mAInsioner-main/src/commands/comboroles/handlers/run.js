@@ -12,11 +12,12 @@ const CONTENT_BUDGET = 1900; // stays under Discord's 2000-char message content 
 const PAGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity before buttons stop working
 
 // The mention list is sent in the message *content* (not in the embed): Discord
-// only resolves and displays usernames for mentions written in the content,
-// so this is what avoids showing raw <@id> for users the requester's client
-// hasn't cached yet. allowedMentions below stops it from actually pinging
-// everyone found.
-const SILENT_MENTIONS = { parse: [] };
+// only resolves and displays usernames for mentions written in the content
+// that are actually allowed to ping — suppressed/non-pinging mentions do NOT
+// carry the resolved user data, which is what caused "Unknown User" before.
+// Real pings are intentionally allowed here (see conversation): the command
+// is only used in a private channel visible to the requester.
+const REAL_MENTIONS = { parse: ['users'] };
 
 // Groups the mention lines into pages that each fit within Discord's message
 // content length limit.
@@ -122,7 +123,7 @@ async function handleRun(interaction) {
   await interaction.editReply({
     embeds: [buildEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pageIndex, pages.length)],
     content: pages[pageIndex],
-    allowedMentions: SILENT_MENTIONS,
+    allowedMentions: REAL_MENTIONS,
     components,
   });
 
@@ -146,7 +147,7 @@ async function handleRun(interaction) {
     await buttonInteraction.update({
       embeds: [buildEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pageIndex, pages.length)],
       content: pages[pageIndex],
-      allowedMentions: SILENT_MENTIONS,
+      allowedMentions: REAL_MENTIONS,
       components: [buildRow(pageIndex, pages.length)],
     });
   });
