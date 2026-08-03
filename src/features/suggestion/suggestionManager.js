@@ -11,11 +11,12 @@ const VOTE_EMOJIS = ['⬆️', '⬇️'];
 
 function buildSuggestionEmbed(suggestion, authorTag, authorAvatarURL) {
   const color = STATUS_COLORS[suggestion.status] || STATUS_COLORS.pending;
+  const titleSuffix = suggestion.status === 'approved' ? ' ✅' : suggestion.status === 'denied' ? ' ❌' : '';
 
   return new EmbedBuilder()
     .setColor(color)
     .setAuthor({ name: authorTag, iconURL: authorAvatarURL })
-    .setTitle(`Suggestion #${suggestion.number}`)
+    .setTitle(`Suggestion #${suggestion.number}${titleSuffix}`)
     .setDescription(suggestion.content);
 }
 
@@ -95,10 +96,9 @@ async function createSuggestion(channel, author, content) {
   return number;
 }
 
-// Re-renders the embed for a suggestion in place (used after /edit, /approve,
-// /deny) — the original message is never deleted, only updated. An optional
-// reaction (✅/❌) is added on top of it when a decision has just been made.
-async function refreshEmbed(guild, suggestion, reactionEmoji = null) {
+// Re-renders the embed for a suggestion in place (used after /edit only —
+// approve/deny use repostSuggestion below instead).
+async function refreshEmbed(guild, suggestion) {
   if (!suggestion.message_id) return;
 
   const channel = guild.channels.cache.get(suggestion.channel_id);
@@ -116,8 +116,29 @@ async function refreshEmbed(guild, suggestion, reactionEmoji = null) {
   );
 
   await message.edit({ embeds: [embed] }).catch(() => null);
+}
 
-  if (reactionEmoji) await message.react(reactionEmoji).catch(() => null);
+// Deletes the original suggestion message (if it still exists) and posts a
+// brand new one with the updated embed (color + ✅/❌ next to the number in
+// the title) — used for approve/deny, which repost rather than edit in place.
+async function repostSuggestion(guild, suggestion) {
+  const channel = guild.channels.cache.get(suggestion.channel_id);
+  if (!channel) return;
+
+  if (suggestion.message_id) {
+    const oldMessage = await channel.messages.fetch(suggestion.message_id).catch(() => null);
+    if (oldMessage) await oldMessage.delete().catch(() => null);
+  }
+
+  const author = await guild.client.users.fetch(suggestion.user_id).catch(() => null);
+
+  const embed = buildSuggestionEmbed(
+    suggestion,
+    author ? author.tag ?? author.username : `<@${suggestion.user_id}>`,
+    author ? author.displayAvatarURL() : null
+  );
+
+  await channel.send({ embeds: [embed] });
 }
 
 // Updates the text of a suggestion (only allowed, at the command level, for
@@ -136,9 +157,9 @@ async function editContent(guild, number, newContent) {
   return suggestion;
 }
 
-// Marks a suggestion as approved/denied, updates its embed color in place
-// (no delete/repost) and adds the matching ✅/❌ reaction, then removes the
-// row from the database — decided suggestions aren't kept around.
+// Marks a suggestion as approved/denied, reposts it (delete + resend) with
+// the updated color and the ✅/❌ next to the number in the title, then
+// removes the row from the database — decided suggestions aren't kept around.
 async function setStatus(guild, number, status, decidedById) {
   const suggestion = await getSuggestion(guild.id, number);
   if (!suggestion) return null;
@@ -147,8 +168,7 @@ async function setStatus(guild, number, status, decidedById) {
   suggestion.decided_by = decidedById;
   suggestion.decided_at = Date.now();
 
-  const reactionEmoji = status === 'approved' ? '✅' : '❌';
-  await refreshEmbed(guild, suggestion, reactionEmoji);
+  await repostSuggestion(guild, suggestion);
 
   await db.execute({
     sql: 'DELETE FROM suggestions WHERE guild_id = ? AND number = ?',
