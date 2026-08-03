@@ -1,9 +1,9 @@
-// Feature "comboroles": nessuna persistenza, solo calcolo in memoria a partire
-// dai membri della gilda già in cache/fetch. Tenuta separata dal command
-// handler per restare coerente con l'architettura a feature indipendenti.
+// "comboroles" feature: no persistence, just in-memory computation over the
+// guild's members (fetched on demand). Kept separate from the command
+// handler to stay consistent with the independent-features architecture.
 
-// Restituisce i GuildMember che possiedono TUTTI i ruoli in roleIds e NESSUNO
-// dei ruoli in excludeRoleIds (BUT).
+// Returns the GuildMembers who have ALL the roles in roleIds and NONE of the
+// roles in excludeRoleIds (BUT).
 async function findMembersWithRoles(guild, roleIds, excludeRoleIds = []) {
   const members = await guild.members.fetch();
 

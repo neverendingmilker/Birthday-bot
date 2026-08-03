@@ -1,12 +1,20 @@
-const { EmbedBuilder } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+} = require('discord.js');
 const { findMembersWithRoles } = require('../../../features/comboroles/comboRolesManager');
 
 const EMBED_COLOR = 0x5865f2;
-const MAX_FIELD_LENGTH = 1024; // limite Discord per il valore di un campo embed
-const MAX_FIELDS = 25; // limite Discord per numero di campi in un embed
+const MAX_FIELD_LENGTH = 1024; // Discord's limit for an embed field value
+const MAX_FIELDS_PER_EMBED = 25; // Discord's limit for the number of fields in one embed
+const MAX_EMBED_TOTAL = 6000; // Discord's limit for the combined size of one embed
+const SAFETY_MARGIN = 500; // headroom for title/description/footer/field names
+const PAGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity before buttons stop working
 
-// Raggruppa le righe in più campi da MAX_FIELD_LENGTH caratteri l'uno, così
-// da non troncare la lista anche con molti utenti.
+// Splits the member list into fields of at most MAX_FIELD_LENGTH characters each.
 function chunkLines(lines) {
   const chunks = [];
   let current = '';
@@ -22,8 +30,33 @@ function chunkLines(lines) {
   }
   if (current) chunks.push(current);
 
-  const truncated = chunks.length > MAX_FIELDS;
-  return { chunks: chunks.slice(0, MAX_FIELDS), truncated };
+  return chunks;
+}
+
+// Packs field-chunks into pages, respecting both Discord's 25-fields-per-embed
+// limit and the 6000-character total embed size limit.
+function paginateChunks(chunks) {
+  const budget = MAX_EMBED_TOTAL - SAFETY_MARGIN;
+  const pages = [];
+  let currentPage = [];
+  let currentSize = 0;
+
+  for (const chunk of chunks) {
+    const wouldExceedFields = currentPage.length >= MAX_FIELDS_PER_EMBED;
+    const wouldExceedSize = currentSize + chunk.length > budget;
+
+    if ((wouldExceedFields || wouldExceedSize) && currentPage.length > 0) {
+      pages.push(currentPage);
+      currentPage = [];
+      currentSize = 0;
+    }
+
+    currentPage.push(chunk);
+    currentSize += chunk.length;
+  }
+  if (currentPage.length > 0) pages.push(currentPage);
+
+  return pages;
 }
 
 function collectRoleOptions(interaction, names) {
@@ -32,24 +65,73 @@ function collectRoleOptions(interaction, names) {
     .filter(Boolean);
 }
 
+function buildBaseEmbed(interaction, requiredLabel, excludedLabel, totalUsers) {
+  const descriptionLines = [`**Required roles:** ${requiredLabel}`];
+  if (excludedLabel) descriptionLines.push(`**BUT (excluded):** ${excludedLabel}`);
+  descriptionLines.push(`**Users found:** ${totalUsers}`);
+
+  return new EmbedBuilder()
+    .setColor(EMBED_COLOR)
+    .setTitle('🔎 Combo roles')
+    .setDescription(descriptionLines.join('\n'))
+    .setFooter({
+      text: `Requested by ${interaction.user.username}`,
+      iconURL: interaction.user.displayAvatarURL(),
+    });
+}
+
+function buildPageEmbed(interaction, requiredLabel, excludedLabel, totalUsers, pages, pageIndex) {
+  const embed = buildBaseEmbed(interaction, requiredLabel, excludedLabel, totalUsers);
+  const page = pages[pageIndex];
+
+  page.forEach((chunk, i) => {
+    const fieldNumber = pages.slice(0, pageIndex).reduce((acc, p) => acc + p.length, 0) + i + 1;
+    embed.addFields({ name: `Users (block ${fieldNumber})`, value: chunk });
+  });
+
+  if (pages.length > 1) {
+    embed.setFooter({
+      text: `Requested by ${interaction.user.username} • Page ${pageIndex + 1}/${pages.length}`,
+      iconURL: interaction.user.displayAvatarURL(),
+    });
+  }
+
+  return embed;
+}
+
+function buildRow(pageIndex, totalPages) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('comboroles_prev')
+      .setLabel('◀ Previous')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(pageIndex === 0),
+    new ButtonBuilder()
+      .setCustomId('comboroles_next')
+      .setLabel('Next ▶')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(pageIndex === totalPages - 1)
+  );
+}
+
 async function handleRun(interaction) {
   await interaction.deferReply({ ephemeral: true });
 
-  const requiredRoles = collectRoleOptions(interaction, ['ruolo1', 'ruolo2', 'ruolo3', 'ruolo4', 'ruolo5']);
+  const requiredRoles = collectRoleOptions(interaction, ['role1', 'role2', 'role3', 'role4', 'role5']);
   const excludedRoles = collectRoleOptions(interaction, ['but1', 'but2', 'but3']);
 
-  // Evita di richiedere e allo stesso tempo escludere lo stesso ruolo.
+  // Prevent the same role from being both required and excluded.
   const conflicting = requiredRoles.find((r) => excludedRoles.some((e) => e.id === r.id));
   if (conflicting) {
     await interaction.editReply({
-      content: `⚠️ Il ruolo ${conflicting} è indicato sia tra i ruoli richiesti che tra i ruoli BUT: rimuovilo da uno dei due.`,
+      content: `⚠️ The role ${conflicting} is listed both among the required roles and the BUT roles: remove it from one of the two.`,
     });
     return;
   }
 
   if (requiredRoles.length < 2) {
     await interaction.editReply({
-      content: '⚠️ Indica almeno due ruoli (ruolo1 e ruolo2) da combinare.',
+      content: '⚠️ Please specify at least two roles (role1 and role2) to combine.',
     });
     return;
   }
@@ -63,43 +145,51 @@ async function handleRun(interaction) {
   const requiredLabel = requiredRoles.map((r) => `${r}`).join(' + ');
   const excludedLabel = excludedRoles.length ? excludedRoles.map((r) => `${r}`).join(', ') : null;
 
-  const embed = new EmbedBuilder()
-    .setColor(EMBED_COLOR)
-    .setTitle('🔎 Combo ruoli')
-    .setFooter({
-      text: `Richiesto da ${interaction.user.username}`,
-      iconURL: interaction.user.displayAvatarURL(),
-    });
-
-  const descriptionLines = [`**Ruoli richiesti:** ${requiredLabel}`];
-  if (excludedLabel) descriptionLines.push(`**BUT (esclusi):** ${excludedLabel}`);
-  descriptionLines.push(`**Utenti trovati:** ${matchingMembers.size}`);
-  embed.setDescription(descriptionLines.join('\n'));
-
   if (matchingMembers.size === 0) {
-    embed.addFields({ name: 'Risultato', value: 'Nessun utente soddisfa questi criteri.' });
+    const embed = buildBaseEmbed(interaction, requiredLabel, excludedLabel, 0);
+    embed.addFields({ name: 'Result', value: 'No users match these criteria.' });
     await interaction.editReply({ embeds: [embed] });
     return;
   }
 
   const lines = [...matchingMembers.values()].map((member, i) => `${i + 1}. <@${member.id}>`);
-  const { chunks, truncated } = chunkLines(lines);
+  const chunks = chunkLines(lines);
+  const pages = paginateChunks(chunks);
 
-  chunks.forEach((chunk, i) => {
-    embed.addFields({
-      name: chunks.length > 1 ? `Utenti (${i + 1}/${chunks.length})` : 'Utenti',
-      value: chunk,
+  let pageIndex = 0;
+  const components = pages.length > 1 ? [buildRow(pageIndex, pages.length)] : [];
+
+  await interaction.editReply({
+    embeds: [buildPageEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pages, pageIndex)],
+    components,
+  });
+
+  if (pages.length <= 1) return;
+
+  const message = await interaction.fetchReply();
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: PAGE_TIMEOUT_MS,
+  });
+
+  collector.on('collect', async (buttonInteraction) => {
+    if (buttonInteraction.user.id !== interaction.user.id) {
+      await buttonInteraction.reply({ content: 'Only the person who ran the command can change pages.', ephemeral: true });
+      return;
+    }
+
+    if (buttonInteraction.customId === 'comboroles_prev') pageIndex = Math.max(0, pageIndex - 1);
+    if (buttonInteraction.customId === 'comboroles_next') pageIndex = Math.min(pages.length - 1, pageIndex + 1);
+
+    await buttonInteraction.update({
+      embeds: [buildPageEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pages, pageIndex)],
+      components: [buildRow(pageIndex, pages.length)],
     });
   });
 
-  if (truncated) {
-    embed.addFields({
-      name: 'Nota',
-      value: 'La lista è stata troncata per limiti di Discord: raffina i filtri per una lista più corta.',
-    });
-  }
-
-  await interaction.editReply({ embeds: [embed] });
+  collector.on('end', async () => {
+    await interaction.editReply({ components: [] }).catch(() => {});
+  });
 }
 
 module.exports = { handleRun };

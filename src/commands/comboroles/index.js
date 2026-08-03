@@ -3,20 +3,20 @@ const { handleRun } = require('./handlers/run');
 
 const data = new SlashCommandBuilder()
   .setName('comboroles')
-  .setDescription('Mostra gli utenti che hanno tutti i ruoli indicati (opzionalmente escludendone altri con BUT)')
-  .addRoleOption((opt) => opt.setName('ruolo1').setDescription('Primo ruolo richiesto').setRequired(true))
-  .addRoleOption((opt) => opt.setName('ruolo2').setDescription('Secondo ruolo richiesto').setRequired(true))
-  .addRoleOption((opt) => opt.setName('ruolo3').setDescription('Terzo ruolo richiesto (opzionale)').setRequired(false))
-  .addRoleOption((opt) => opt.setName('ruolo4').setDescription('Quarto ruolo richiesto (opzionale)').setRequired(false))
-  .addRoleOption((opt) => opt.setName('ruolo5').setDescription('Quinto ruolo richiesto (opzionale)').setRequired(false))
+  .setDescription('Shows the users who have all the given roles (optionally excluding others with BUT)')
+  .addRoleOption((opt) => opt.setName('role1').setDescription('First required role').setRequired(true))
+  .addRoleOption((opt) => opt.setName('role2').setDescription('Second required role').setRequired(true))
+  .addRoleOption((opt) => opt.setName('role3').setDescription('Third required role (optional)').setRequired(false))
+  .addRoleOption((opt) => opt.setName('role4').setDescription('Fourth required role (optional)').setRequired(false))
+  .addRoleOption((opt) => opt.setName('role5').setDescription('Fifth required role (optional)').setRequired(false))
   .addRoleOption((opt) =>
-    opt.setName('but1').setDescription('BUT: escludi chi ha anche questo ruolo (opzionale)').setRequired(false)
+    opt.setName('but1').setDescription('BUT: exclude anyone who also has this role (optional)').setRequired(false)
   )
   .addRoleOption((opt) =>
-    opt.setName('but2').setDescription('BUT: escludi chi ha anche questo ruolo (opzionale)').setRequired(false)
+    opt.setName('but2').setDescription('BUT: exclude anyone who also has this role (optional)').setRequired(false)
   )
   .addRoleOption((opt) =>
-    opt.setName('but3').setDescription('BUT: escludi chi ha anche questo ruolo (opzionale)').setRequired(false)
+    opt.setName('but3').setDescription('BUT: exclude anyone who also has this role (optional)').setRequired(false)
   );
 
 async function execute(interaction) {
