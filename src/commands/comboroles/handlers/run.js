@@ -129,9 +129,9 @@ async function handleRun(interaction) {
     return;
   }
 
-  if (requiredRoles.length < 2) {
+  if (requiredRoles.length < 1) {
     await interaction.editReply({
-      content: '⚠️ Please specify at least two roles (role1 and role2) to combine.',
+      content: '⚠️ Please specify at least one role (role1) to look up.',
     });
     return;
   }
