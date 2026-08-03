@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { handleCreate } = require('./handlers/create');
 const { handleEdit } = require('./handlers/edit');
-const { handleApprove, handleDeny } = require('./handlers/decide');
+const { handleApprove, handleReject } = require('./handlers/decide');
 const { handleChannelSet, handleChannelRemove } = require('./handlers/channel');
 const { handleList } = require('./handlers/list');
 
@@ -40,8 +40,8 @@ const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub
-      .setName('deny')
-      .setDescription('[Admin] Deny a suggestion')
+      .setName('reject')
+      .setDescription('[Admin] Reject a suggestion')
       .addIntegerOption((opt) =>
         opt.setName('number').setDescription('Suggestion number (e.g. 12)').setMinValue(1).setRequired(true)
       )
@@ -84,8 +84,8 @@ async function execute(interaction) {
       return handleList(interaction);
     case 'approve':
       return handleApprove(interaction);
-    case 'deny':
-      return handleDeny(interaction);
+    case 'reject':
+      return handleReject(interaction);
     default:
       return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
   }

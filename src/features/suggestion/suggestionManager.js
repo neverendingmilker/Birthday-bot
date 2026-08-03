@@ -118,17 +118,12 @@ async function refreshEmbed(guild, suggestion) {
   await message.edit({ embeds: [embed] }).catch(() => null);
 }
 
-// Deletes the original suggestion message (if it still exists) and posts a
-// brand new one with the updated embed (color + ✅/❌ next to the number in
-// the title) — used for approve/deny, which repost rather than edit in place.
+// Posts a brand new message with the updated embed (color + ✅/❌ next to the
+// number in the title) — used for approve/reject, which post an updated copy
+// without touching/deleting the original message.
 async function repostSuggestion(guild, suggestion) {
   const channel = guild.channels.cache.get(suggestion.channel_id);
   if (!channel) return;
-
-  if (suggestion.message_id) {
-    const oldMessage = await channel.messages.fetch(suggestion.message_id).catch(() => null);
-    if (oldMessage) await oldMessage.delete().catch(() => null);
-  }
 
   const author = await guild.client.users.fetch(suggestion.user_id).catch(() => null);
 
@@ -157,9 +152,10 @@ async function editContent(guild, number, newContent) {
   return suggestion;
 }
 
-// Marks a suggestion as approved/denied, reposts it (delete + resend) with
-// the updated color and the ✅/❌ next to the number in the title, then
-// removes the row from the database — decided suggestions aren't kept around.
+// Marks a suggestion as approved/rejected and posts an updated copy (color +
+// ✅/❌ next to the number in the title) without deleting the original
+// message, then removes the row from the database — decided suggestions
+// aren't kept around.
 async function setStatus(guild, number, status, decidedById) {
   const suggestion = await getSuggestion(guild.id, number);
   if (!suggestion) return null;

@@ -32,8 +32,8 @@ async function handleApprove(interaction) {
   return decide(interaction, 'approved', 'approve', 'approved');
 }
 
-async function handleDeny(interaction) {
-  return decide(interaction, 'denied', 'deny', 'denied');
+async function handleReject(interaction) {
+  return decide(interaction, 'denied', 'reject', 'rejected');
 }
 
-module.exports = { handleApprove, handleDeny };
+module.exports = { handleApprove, handleReject };
