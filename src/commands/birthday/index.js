@@ -1,9 +1,8 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { handleAdd } = require('./handlers/add');
-const { handleRole } = require('./handlers/role');
-const { handleRemoveRole } = require('./handlers/removerole');
+const { handleRemove } = require('./handlers/remove');
+const { handleConfig } = require('./handlers/config');
 const { handleList } = require('./handlers/list');
-const { handleChannel } = require('./handlers/channel');
 
 const data = new SlashCommandBuilder()
   .setName('birthday')
@@ -30,33 +29,34 @@ const data = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub
-      .setName('role')
-      .setDescription('[Admin] Set the role to assign on someone\'s birthday')
-      .addRoleOption((opt) =>
-        opt.setName('role').setDescription('Role to assign').setRequired(true)
+      .setName('remove')
+      .setDescription('Remove your birthday (or, for admins, someone else\'s)')
+      .addUserOption((opt) =>
+        opt
+          .setName('user')
+          .setDescription('[Admin only] Remove someone else\'s birthday instead of your own')
+          .setRequired(false)
       )
   )
   .addSubcommand((sub) =>
     sub
-      .setName('removerole')
-      .setDescription('[Admin] Set after how long to remove the birthday role')
+      .setName('config')
+      .setDescription('[Admin] Configure the birthday role, removal timer and/or greeting channel')
+      .addRoleOption((opt) =>
+        opt.setName('role').setDescription("Role to assign on someone's birthday").setRequired(false)
+      )
       .addStringOption((opt) =>
         opt
-          .setName('timer')
-          .setDescription('e.g. 30s, 10m, 24h, 3d (min 10s, max 30d, default 24h)')
-          .setRequired(true)
+          .setName('removeafter')
+          .setDescription('How long before removing the role, e.g. 30s, 10m, 24h, 3d (min 10s, max 30d)')
+          .setRequired(false)
       )
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('channel')
-      .setDescription('[Admin] Set the channel where automatic birthday greetings are posted')
       .addChannelOption((opt) =>
         opt
           .setName('channel')
           .setDescription('Channel for birthday greetings')
           .addChannelTypes(ChannelType.GuildText)
-          .setRequired(true)
+          .setRequired(false)
       )
   )
   .addSubcommand((sub) =>
@@ -69,12 +69,10 @@ async function execute(interaction) {
   switch (sub) {
     case 'add':
       return handleAdd(interaction);
-    case 'role':
-      return handleRole(interaction);
-    case 'removerole':
-      return handleRemoveRole(interaction);
-    case 'channel':
-      return handleChannel(interaction);
+    case 'remove':
+      return handleRemove(interaction);
+    case 'config':
+      return handleConfig(interaction);
     case 'list':
       return handleList(interaction);
     default:

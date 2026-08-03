@@ -55,23 +55,26 @@ async function createTables() {
         added_at INTEGER NOT NULL,
         added_by TEXT
       )`,
-      `CREATE TABLE IF NOT EXISTS verify_guild_config (
+      `CREATE TABLE IF NOT EXISTS verify_role_config (
         guild_id TEXT PRIMARY KEY,
-        findom_role_id TEXT,
-        sub_role_id TEXT,
-        verified_channel_id TEXT
+        sub_give_role_id TEXT,
+        domme_give_role_id TEXT,
+        maledom_give_role_id TEXT,
+        remove_role_id TEXT,
+        report_channel_id TEXT,
+        allowed_role_id TEXT
       )`,
-      `CREATE TABLE IF NOT EXISTS verify_entries (
+      `CREATE TABLE IF NOT EXISTS verify_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         type TEXT NOT NULL,
-        social TEXT,
-        method TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        verification TEXT NOT NULL,
+        social TEXT NOT NULL,
         verified_at INTEGER NOT NULL,
-        verified_by TEXT NOT NULL,
-        channel_id TEXT,
-        message_id TEXT,
-        PRIMARY KEY (guild_id, user_id, type)
+        moderator_id TEXT
       )`,
     ],
     'write'
@@ -102,6 +105,37 @@ async function migrate() {
   await client.execute(
     'UPDATE birthday_guild_config SET remove_after_seconds = 86400 WHERE remove_after_seconds IS NULL'
   );
+
+  const verifyColumns = await client.execute('PRAGMA table_info(verify_role_config)');
+  const verifyColumnNames = verifyColumns.rows.map((row) => row.name);
+
+  if (!verifyColumnNames.includes('report_channel_id')) {
+    await client.execute('ALTER TABLE verify_role_config ADD COLUMN report_channel_id TEXT');
+  }
+  if (!verifyColumnNames.includes('allowed_role_id')) {
+    await client.execute('ALTER TABLE verify_role_config ADD COLUMN allowed_role_id TEXT');
+  }
+
+  // One-time conversion from the old per-type remove roles (sub_remove_role_id,
+  // domme_remove_role_id, maledom_remove_role_id) to a single shared remove_role_id.
+  // Only touches rows that haven't been migrated yet (remove_role_id still NULL).
+  if (!verifyColumnNames.includes('remove_role_id')) {
+    await client.execute('ALTER TABLE verify_role_config ADD COLUMN remove_role_id TEXT');
+  }
+  if (verifyColumnNames.includes('sub_remove_role_id')) {
+    await client.execute(
+      `UPDATE verify_role_config
+       SET remove_role_id = COALESCE(sub_remove_role_id, domme_remove_role_id, maledom_remove_role_id)
+       WHERE remove_role_id IS NULL`
+    );
+  }
+
+  const verifyReportColumns = await client.execute('PRAGMA table_info(verify_reports)');
+  const verifyReportColumnNames = verifyReportColumns.rows.map((row) => row.name);
+
+  if (!verifyReportColumnNames.includes('moderator_id')) {
+    await client.execute('ALTER TABLE verify_reports ADD COLUMN moderator_id TEXT');
+  }
 }
 
 const ready = createTables()

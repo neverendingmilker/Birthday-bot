@@ -2,76 +2,111 @@ const repo = require('./verifyRepository');
 
 class ValidationError extends Error {}
 
-const TYPES = ['findom', 'sub'];
+const TYPES = ['sub', 'domme', 'maledom'];
+
+const TYPE_LABELS = {
+  sub: 'Sub',
+  domme: 'Domme',
+  maledom: 'Maledom',
+};
+
+// Embed side-bar color used in the verification report, per type.
+const TYPE_COLORS = {
+  sub: 0x00ff00, // green
+  domme: 0xff0000, // red
+  maledom: 0x0f00ff, // blue
+};
 
 async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
 
-async function setFindomRole(guildId, roleId) {
-  await repo.setFindomRole(guildId, roleId);
+// Updates any combination of settings in one call: the give roles for the three
+// verification types, the single shared remove role, the report channel, and/or
+// the role allowed to run /verify sub, domme and maledom. `updates` keys (all
+// optional, pass only the ones that changed): subGive, dommeGive, maledomGive,
+// remove, allowedRole (role ID strings), channel (channel ID string).
+async function setConfig(guildId, updates) {
+  const current = await repo.getGuildConfig(guildId);
+
+  const merged = {
+    sub_give_role_id: updates.subGive !== undefined ? updates.subGive : current.sub_give_role_id,
+    domme_give_role_id: updates.dommeGive !== undefined ? updates.dommeGive : current.domme_give_role_id,
+    maledom_give_role_id:
+      updates.maledomGive !== undefined ? updates.maledomGive : current.maledom_give_role_id,
+    remove_role_id: updates.remove !== undefined ? updates.remove : current.remove_role_id,
+    report_channel_id: updates.channel !== undefined ? updates.channel : current.report_channel_id,
+    allowed_role_id: updates.allowedRole !== undefined ? updates.allowedRole : current.allowed_role_id,
+  };
+
+  await repo.setGuildConfig(guildId, merged);
+  return merged;
 }
 
-async function setSubRole(guildId, roleId) {
-  await repo.setSubRole(guildId, roleId);
-}
-
-async function setVerifiedChannel(guildId, channelId) {
-  await repo.setVerifiedChannel(guildId, channelId);
-}
-
-// Records (or overwrites, if the user is re-verified) a verification entry.
-async function recordVerification(guildId, userId, type, socialInput, methodInput, verifiedBy, channelId, messageId) {
+// Returns { giveRoleId, removeRoleId } for a verification type, reading from the
+// guild's config object (as returned by getGuildConfig). removeRoleId is the same
+// single shared role for all three types.
+function getRoleIdsForType(config, type) {
   if (!TYPES.includes(type)) {
-    throw new ValidationError('Invalid verification type.');
+    throw new ValidationError(`Unknown verification type "${type}".`);
   }
-  if (!methodInput || !methodInput.trim()) {
-    throw new ValidationError('Method is required.');
-  }
-
-  const social = socialInput && socialInput.trim() ? socialInput.trim() : null;
-  const method = methodInput.trim();
-
-  await repo.upsertVerification(guildId, userId, type, social, method, Date.now(), verifiedBy, channelId, messageId);
-
-  return { social, method };
+  return {
+    giveRoleId: config[`${type}_give_role_id`],
+    removeRoleId: config.remove_role_id,
+  };
 }
 
-async function getVerification(guildId, userId, type) {
-  return repo.getVerification(guildId, userId, type);
+// Who can run /verify sub, domme and maledom: anyone with Manage Roles (always
+// allowed), plus — if configured via /verify config allowedrole — anyone holding
+// that specific role.
+function canUseVerifyCommands(member, config) {
+  if (member.permissions.has('ManageRoles')) return true;
+  if (config.allowed_role_id && member.roles.cache.has(config.allowed_role_id)) return true;
+  return false;
 }
 
-// Edits an existing verification's Social and/or Method. At least one must be provided
-// (pass `undefined` for a field that shouldn't change).
-async function editVerification(guildId, userId, type, socialInput, methodInput) {
-  if (socialInput === undefined && methodInput === undefined) {
-    throw new ValidationError('Provide at least a new Social or Method value to change.');
+// --- Verification reports (for /verify edit) ---
+
+const EDITABLE_FIELDS = ['verification', 'social'];
+
+async function recordReport(report) {
+  return repo.insertReport(report);
+}
+
+// The report to edit for a given user: always the most recent one, regardless of
+// which of the three types it was ("edit the last one" when several exist).
+async function getLastReportForUser(guildId, userId) {
+  return repo.getLastReportForUser(guildId, userId);
+}
+
+async function getReportById(id) {
+  return repo.getReportById(id);
+}
+
+async function deleteReport(id) {
+  return repo.deleteReport(id);
+}
+
+async function updateReportField(id, field, value) {
+  if (!EDITABLE_FIELDS.includes(field)) {
+    throw new ValidationError(`Field "${field}" can't be edited.`);
   }
-  if (methodInput !== undefined && !methodInput.trim()) {
-    throw new ValidationError('Method cannot be empty.');
-  }
-
-  const existing = await repo.getVerification(guildId, userId, type);
-  if (!existing) {
-    throw new ValidationError('No existing verification found for that user and type.');
-  }
-
-  const newSocial =
-    socialInput !== undefined ? (socialInput.trim() ? socialInput.trim() : null) : existing.social;
-  const newMethod = methodInput !== undefined ? methodInput.trim() : existing.method;
-
-  await repo.updateVerificationFields(guildId, userId, type, newSocial, newMethod);
-
-  return { ...existing, social: newSocial, method: newMethod };
+  await repo.updateReportField(id, field, value);
 }
 
 module.exports = {
   ValidationError,
+  TYPES,
+  TYPE_LABELS,
+  TYPE_COLORS,
+  EDITABLE_FIELDS,
   getGuildConfig,
-  setFindomRole,
-  setSubRole,
-  setVerifiedChannel,
-  recordVerification,
-  getVerification,
-  editVerification,
+  setConfig,
+  getRoleIdsForType,
+  canUseVerifyCommands,
+  recordReport,
+  getLastReportForUser,
+  getReportById,
+  updateReportField,
+  deleteReport,
 };
