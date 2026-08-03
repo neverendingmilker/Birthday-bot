@@ -1,0 +1,127 @@
+const { EmbedBuilder } = require('discord.js');
+const { client: db } = require('../../database/db');
+
+const EMBED_COLOR = 0x5865f2;
+
+// In-memory cache keyed by channel_id, kept in sync with the sticky_messages
+// table. Reading from here avoids a DB round-trip on every single message
+// sent in the server (messageCreate fires very often).
+const cache = new Map();
+
+function buildStickyEmbed(content) {
+  return new EmbedBuilder()
+    .setColor(EMBED_COLOR)
+    .setDescription(content)
+    .setFooter({ text: '📌 Sticky message' });
+}
+
+// Loads every configured sticky from the DB into the in-memory cache.
+// Called once at startup (see events/ready.js).
+async function loadAll() {
+  const result = await db.execute('SELECT * FROM sticky_messages');
+  cache.clear();
+  for (const row of result.rows) {
+    cache.set(row.channel_id, {
+      guildId: row.guild_id,
+      channelId: row.channel_id,
+      content: row.content,
+      lastMessageId: row.last_message_id,
+    });
+  }
+  return cache.size;
+}
+
+function getStickyByChannel(channelId) {
+  return cache.get(channelId) || null;
+}
+
+function listByGuild(guildId) {
+  return [...cache.values()].filter((s) => s.guildId === guildId);
+}
+
+// Deletes the previous sticky message (if it still exists) and posts a fresh
+// one at the bottom of the channel, then updates the cache and DB with the
+// new message id. Used both when a sticky is first created and every time
+// handleNewMessage() detects new activity in a channel that has one.
+async function repostSticky(channel, sticky) {
+  if (sticky.lastMessageId) {
+    const oldMessage = await channel.messages.fetch(sticky.lastMessageId).catch(() => null);
+    if (oldMessage) await oldMessage.delete().catch(() => null);
+  }
+
+  const newMessage = await channel.send({ embeds: [buildStickyEmbed(sticky.content)] });
+
+  sticky.lastMessageId = newMessage.id;
+  cache.set(channel.id, sticky);
+
+  await db.execute({
+    sql: 'UPDATE sticky_messages SET last_message_id = ?, updated_at = ? WHERE guild_id = ? AND channel_id = ?',
+    args: [newMessage.id, Date.now(), sticky.guildId, channel.id],
+  });
+
+  return newMessage;
+}
+
+// Creates (or replaces) the sticky configured for a channel, and immediately
+// posts it.
+async function setSticky(channel, content, createdBy) {
+  const guildId = channel.guild.id;
+  const sticky = { guildId, channelId: channel.id, content, lastMessageId: null };
+
+  await db.execute({
+    sql: `INSERT INTO sticky_messages (guild_id, channel_id, content, last_message_id, created_by, updated_at)
+          VALUES (?, ?, ?, NULL, ?, ?)
+          ON CONFLICT (guild_id, channel_id) DO UPDATE SET
+            content = excluded.content,
+            last_message_id = NULL,
+            created_by = excluded.created_by,
+            updated_at = excluded.updated_at`,
+    args: [guildId, channel.id, content, createdBy, Date.now()],
+  });
+
+  cache.set(channel.id, sticky);
+  await repostSticky(channel, sticky);
+}
+
+// Removes the sticky configured for a channel and, on a best-effort basis,
+// deletes the last message it had posted there.
+async function removeSticky(guild, channelId) {
+  const sticky = cache.get(channelId);
+  if (!sticky) return false;
+
+  if (sticky.lastMessageId) {
+    const channel = guild.channels.cache.get(channelId);
+    const oldMessage = channel ? await channel.messages.fetch(sticky.lastMessageId).catch(() => null) : null;
+    if (oldMessage) await oldMessage.delete().catch(() => null);
+  }
+
+  await db.execute({
+    sql: 'DELETE FROM sticky_messages WHERE guild_id = ? AND channel_id = ?',
+    args: [guild.id, channelId],
+  });
+
+  cache.delete(channelId);
+  return true;
+}
+
+// Called from events/messageCreate.js for every message sent in the server.
+// If the channel has an active sticky and this message isn't the sticky's
+// own repost, delete-and-repost it so it stays at the bottom of the channel.
+async function handleNewMessage(message) {
+  const sticky = cache.get(message.channel.id);
+  if (!sticky) return;
+  if (message.id === sticky.lastMessageId) return; // this IS the sticky repost, not new activity
+
+  await repostSticky(message.channel, sticky).catch((err) => {
+    console.error(`[sticky] Failed to repost sticky message in channel ${message.channel.id}:`, err);
+  });
+}
+
+module.exports = {
+  loadAll,
+  getStickyByChannel,
+  listByGuild,
+  setSticky,
+  removeSticky,
+  handleNewMessage,
+};

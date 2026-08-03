@@ -1,5 +1,6 @@
 const birthdayScheduler = require('../features/birthday/birthdayScheduler');
 const { warmMemberCache } = require('../features/comboroles/memberCacheWarmer');
+const stickyManager = require('../features/sticky/stickyManager');
 
 module.exports = {
   name: 'clientReady', // renamed from 'ready': in discord.js v15 this will be the only name available
@@ -12,5 +13,9 @@ module.exports = {
     // add a line here.
     birthdayScheduler.start(client);
     warmMemberCache(client).catch((err) => console.error('[comboroles] Error warming member cache:', err));
+    stickyManager
+      .loadAll()
+      .then((count) => console.log(`[sticky] Loaded ${count} sticky message(s).`))
+      .catch((err) => console.error('[sticky] Error loading sticky messages:', err));
   },
 };

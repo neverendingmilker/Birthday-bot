@@ -13,6 +13,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers, // needed to assign/remove roles and fetch members
+    GatewayIntentBits.GuildMessages, // needed for the sticky-message feature to detect new activity
   ],
 });
 

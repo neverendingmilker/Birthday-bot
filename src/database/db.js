@@ -76,6 +76,15 @@ async function createTables() {
         verified_at INTEGER NOT NULL,
         moderator_id TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS sticky_messages (
+        guild_id TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        last_message_id TEXT,
+        created_by TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (guild_id, channel_id)
+      )`,
     ],
     'write'
   );
