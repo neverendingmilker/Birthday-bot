@@ -8,53 +8,32 @@ const {
 const { findMembersWithRoles } = require('../../../features/comboroles/comboRolesManager');
 
 const EMBED_COLOR = 0x5865f2;
-const MAX_FIELD_LENGTH = 1024; // Discord's limit for an embed field value
-const MAX_FIELDS_PER_EMBED = 25; // Discord's limit for the number of fields in one embed
-const MAX_EMBED_TOTAL = 6000; // Discord's limit for the combined size of one embed
-const SAFETY_MARGIN = 500; // headroom for title/description/footer/field names
+const CONTENT_BUDGET = 1900; // stays under Discord's 2000-char message content limit, with margin
 const PAGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity before buttons stop working
 
-// Splits the member list into fields of at most MAX_FIELD_LENGTH characters each.
-function chunkLines(lines) {
-  const chunks = [];
+// The mention list is sent in the message *content* (not in the embed): Discord
+// only resolves and displays usernames for mentions written in the content,
+// so this is what avoids showing raw <@id> for users the requester's client
+// hasn't cached yet. allowedMentions below stops it from actually pinging
+// everyone found.
+const SILENT_MENTIONS = { parse: [] };
+
+// Groups the mention lines into pages that each fit within Discord's message
+// content length limit.
+function paginateLines(lines) {
+  const pages = [];
   let current = '';
 
   for (const line of lines) {
     const candidate = current ? `${current}\n${line}` : line;
-    if (candidate.length > MAX_FIELD_LENGTH) {
-      if (current) chunks.push(current);
+    if (candidate.length > CONTENT_BUDGET) {
+      if (current) pages.push(current);
       current = line;
     } else {
       current = candidate;
     }
   }
-  if (current) chunks.push(current);
-
-  return chunks;
-}
-
-// Packs field-chunks into pages, respecting both Discord's 25-fields-per-embed
-// limit and the 6000-character total embed size limit.
-function paginateChunks(chunks) {
-  const budget = MAX_EMBED_TOTAL - SAFETY_MARGIN;
-  const pages = [];
-  let currentPage = [];
-  let currentSize = 0;
-
-  for (const chunk of chunks) {
-    const wouldExceedFields = currentPage.length >= MAX_FIELDS_PER_EMBED;
-    const wouldExceedSize = currentSize + chunk.length > budget;
-
-    if ((wouldExceedFields || wouldExceedSize) && currentPage.length > 0) {
-      pages.push(currentPage);
-      currentPage = [];
-      currentSize = 0;
-    }
-
-    currentPage.push(chunk);
-    currentSize += chunk.length;
-  }
-  if (currentPage.length > 0) pages.push(currentPage);
+  if (current) pages.push(current);
 
   return pages;
 }
@@ -65,38 +44,21 @@ function collectRoleOptions(interaction, names) {
     .filter(Boolean);
 }
 
-function buildBaseEmbed(interaction, requiredLabel, excludedLabel, totalUsers) {
+function buildEmbed(interaction, requiredLabel, excludedLabel, totalUsers, pageIndex, totalPages) {
   const descriptionLines = [`**Required roles:** ${requiredLabel}`];
   if (excludedLabel) descriptionLines.push(`**BUT (excluded):** ${excludedLabel}`);
   descriptionLines.push(`**Users found:** ${totalUsers}`);
+
+  const footerText =
+    totalPages > 1
+      ? `Requested by ${interaction.user.username} • Page ${pageIndex + 1}/${totalPages}`
+      : `Requested by ${interaction.user.username}`;
 
   return new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('🔎 Combo roles')
     .setDescription(descriptionLines.join('\n'))
-    .setFooter({
-      text: `Requested by ${interaction.user.username}`,
-      iconURL: interaction.user.displayAvatarURL(),
-    });
-}
-
-function buildPageEmbed(interaction, requiredLabel, excludedLabel, totalUsers, pages, pageIndex) {
-  const embed = buildBaseEmbed(interaction, requiredLabel, excludedLabel, totalUsers);
-  const page = pages[pageIndex];
-
-  page.forEach((chunk, i) => {
-    const fieldNumber = pages.slice(0, pageIndex).reduce((acc, p) => acc + p.length, 0) + i + 1;
-    embed.addFields({ name: `Users (block ${fieldNumber})`, value: chunk });
-  });
-
-  if (pages.length > 1) {
-    embed.setFooter({
-      text: `Requested by ${interaction.user.username} • Page ${pageIndex + 1}/${pages.length}`,
-      iconURL: interaction.user.displayAvatarURL(),
-    });
-  }
-
-  return embed;
+    .setFooter({ text: footerText, iconURL: interaction.user.displayAvatarURL() });
 }
 
 function buildRow(pageIndex, totalPages) {
@@ -146,21 +108,21 @@ async function handleRun(interaction) {
   const excludedLabel = excludedRoles.length ? excludedRoles.map((r) => `${r}`).join(', ') : null;
 
   if (matchingMembers.size === 0) {
-    const embed = buildBaseEmbed(interaction, requiredLabel, excludedLabel, 0);
-    embed.addFields({ name: 'Result', value: 'No users match these criteria.' });
-    await interaction.editReply({ embeds: [embed] });
+    const embed = buildEmbed(interaction, requiredLabel, excludedLabel, 0, 0, 1);
+    await interaction.editReply({ embeds: [embed], content: 'No users match these criteria.' });
     return;
   }
 
   const lines = [...matchingMembers.values()].map((member, i) => `${i + 1}. <@${member.id}>`);
-  const chunks = chunkLines(lines);
-  const pages = paginateChunks(chunks);
+  const pages = paginateLines(lines);
 
   let pageIndex = 0;
   const components = pages.length > 1 ? [buildRow(pageIndex, pages.length)] : [];
 
   await interaction.editReply({
-    embeds: [buildPageEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pages, pageIndex)],
+    embeds: [buildEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pageIndex, pages.length)],
+    content: pages[pageIndex],
+    allowedMentions: SILENT_MENTIONS,
     components,
   });
 
@@ -182,7 +144,9 @@ async function handleRun(interaction) {
     if (buttonInteraction.customId === 'comboroles_next') pageIndex = Math.min(pages.length - 1, pageIndex + 1);
 
     await buttonInteraction.update({
-      embeds: [buildPageEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pages, pageIndex)],
+      embeds: [buildEmbed(interaction, requiredLabel, excludedLabel, matchingMembers.size, pageIndex, pages.length)],
+      content: pages[pageIndex],
+      allowedMentions: SILENT_MENTIONS,
       components: [buildRow(pageIndex, pages.length)],
     });
   });
