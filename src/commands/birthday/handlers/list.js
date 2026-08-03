@@ -42,9 +42,7 @@ async function handleList(interaction) {
   if (guildIcon) embed.setThumbnail(guildIcon);
 
   for (const group of groups) {
-    const lines = group.entries.map(
-      (e, i) => `${i + 1}. ${formatDay(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`
-    );
+    const lines = group.entries.map((e) => `${formatDay(e.date)} - <@${e.userId}> - ${formatDaysLeft(e.daysUntil)}`);
 
     embed.addFields({
       name: group.monthLabel,

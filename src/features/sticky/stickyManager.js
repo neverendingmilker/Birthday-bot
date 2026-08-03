@@ -8,6 +8,16 @@ const EMBED_COLOR = 0x5865f2;
 // sent in the server (messageCreate fires very often).
 const cache = new Map();
 
+// Channels where a repost is currently in flight. The gateway event for the
+// message we just sent via channel.send() can arrive BEFORE that call even
+// resolves (REST response and gateway event are two independent channels),
+// so comparing message.id to the cached lastMessageId alone isn't enough:
+// there's a window where the cache still holds the *previous* id. While a
+// channel is in this set, any messageCreate for it is treated as our own
+// echo and ignored, which closes that race instead of triggering a cascade
+// of self-reposts.
+const postingInProgress = new Set();
+
 function buildStickyEmbed(content) {
   return new EmbedBuilder()
     .setColor(EMBED_COLOR)
@@ -44,22 +54,27 @@ function listByGuild(guildId) {
 // new message id. Used both when a sticky is first created and every time
 // handleNewMessage() detects new activity in a channel that has one.
 async function repostSticky(channel, sticky) {
-  if (sticky.lastMessageId) {
-    const oldMessage = await channel.messages.fetch(sticky.lastMessageId).catch(() => null);
-    if (oldMessage) await oldMessage.delete().catch(() => null);
+  postingInProgress.add(channel.id);
+  try {
+    if (sticky.lastMessageId) {
+      const oldMessage = await channel.messages.fetch(sticky.lastMessageId).catch(() => null);
+      if (oldMessage) await oldMessage.delete().catch(() => null);
+    }
+
+    const newMessage = await channel.send({ embeds: [buildStickyEmbed(sticky.content)] });
+
+    sticky.lastMessageId = newMessage.id;
+    cache.set(channel.id, sticky);
+
+    await db.execute({
+      sql: 'UPDATE sticky_messages SET last_message_id = ?, updated_at = ? WHERE guild_id = ? AND channel_id = ?',
+      args: [newMessage.id, Date.now(), sticky.guildId, channel.id],
+    });
+
+    return newMessage;
+  } finally {
+    postingInProgress.delete(channel.id);
   }
-
-  const newMessage = await channel.send({ embeds: [buildStickyEmbed(sticky.content)] });
-
-  sticky.lastMessageId = newMessage.id;
-  cache.set(channel.id, sticky);
-
-  await db.execute({
-    sql: 'UPDATE sticky_messages SET last_message_id = ?, updated_at = ? WHERE guild_id = ? AND channel_id = ?',
-    args: [newMessage.id, Date.now(), sticky.guildId, channel.id],
-  });
-
-  return newMessage;
 }
 
 // Creates (or replaces) the sticky configured for a channel, and immediately
@@ -110,7 +125,8 @@ async function removeSticky(guild, channelId) {
 async function handleNewMessage(message) {
   const sticky = cache.get(message.channel.id);
   if (!sticky) return;
-  if (message.id === sticky.lastMessageId) return; // this IS the sticky repost, not new activity
+  if (postingInProgress.has(message.channel.id)) return; // our own repost is still in flight for this channel
+  if (message.id === sticky.lastMessageId) return; // fallback safety check, same idea but after the fact
 
   await repostSticky(message.channel, sticky).catch((err) => {
     console.error(`[sticky] Failed to repost sticky message in channel ${message.channel.id}:`, err);
