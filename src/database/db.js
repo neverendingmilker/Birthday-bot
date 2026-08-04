@@ -85,6 +85,12 @@ async function createTables() {
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (guild_id, channel_id)
       )`,
+      `CREATE TABLE IF NOT EXISTS incident_config (
+        guild_id TEXT PRIMARY KEY,
+        channel_id TEXT,
+        count INTEGER NOT NULL DEFAULT 0,
+        last_message_id TEXT
+      )`,
       `CREATE TABLE IF NOT EXISTS suggestion_config (
         guild_id TEXT PRIMARY KEY,
         channel_id TEXT

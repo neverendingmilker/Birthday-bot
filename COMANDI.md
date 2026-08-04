@@ -25,3 +25,13 @@ Riservato agli admin.
 - **`/verify config`** — Imposta i ruoli da assegnare per ciascun tipo di verifica (sub / domme / maledom), l'eventuale ruolo condiviso da rimuovere quando si verifica qualcuno, e il canale dove postare i report.
 - **`/verify sub`**, **`/verify domme`**, **`/verify maledom`** — Verifica un utente come uno dei tre tipi: gli assegna il ruolo corrispondente, gli toglie l'eventuale ruolo di rimozione configurato, e posta un report nel canale impostato. Se l'utente aveva già un report precedente, quello vecchio viene sostituito dal nuovo.
 - **`/verify edit`** — Modifica i dati (verifica/social) dell'ultimo report di un utente.
+
+## 🪧 Giorni dall'ultimo incidente (`/incident`)
+
+Riservato agli admin. Mantiene aggiornato in un canale il cartello "Days since last incident" con il numero corrente.
+
+- **`/incident channel`** — Imposta il canale dove tenere aggiornato il cartello.
+- **`/incident setnumber`** — Imposta manualmente il contatore a un numero specifico.
+- **`/incident reset`** — Azzera il contatore (da usare quando è appena successo un incidente).
+
+Ogni giorno a mezzanotte il contatore aumenta automaticamente di 1 e il cartello viene rigenerato. Viene sempre mantenuto un solo messaggio visibile: quando il cartello si aggiorna, quello vecchio viene cancellato.

@@ -25,6 +25,12 @@ src/
       handlers/
         config.js    (configures the give/remove roles for the 3 types + report channel, merged into one subcommand)
         verifyAction.js (shared logic used by sub/domme/maledom, not a subcommand itself)
+    incident/
+      index.js       (defines /incident channel, setnumber, reset)
+      handlers/
+        config.js
+        setnumber.js
+        reset.js
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -36,6 +42,12 @@ src/
     verify/
       verifyManager.js     (validation and rules)
       verifyRepository.js  (SQL queries)
+    incident/
+      incidentManager.js     (validation + posts/refreshes the sign in Discord)
+      incidentRepository.js  (SQL queries)
+      incidentImage.js       (renders the sign PNG with the current count, via @napi-rs/canvas)
+      incidentScheduler.js   (cron job: +1 every day at midnight)
+      assets/                (base sign image + font, ported from the original Python bot)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -101,6 +113,16 @@ All `/verify` subcommands require the **Manage Roles** permission.
 - `/verify sub user:<@user>` / `/verify domme user:<@user>` / `/verify maledom user:<@user>` — assigns the configured "give" role for that type (no-op if the member already has it), and removes the configured "remove" role for that type if the member currently holds it.
 
 Each of the three types is independent — e.g. running `/verify domme` never touches the sub or maledom roles unless you explicitly configured them to overlap. The bot's role must be higher than every role it needs to touch (both give and remove), otherwise it reports which one it couldn't apply instead of failing silently. Running `/verify sub|domme|maledom` before `/verify config` has been set up for that type replies with a reminder instead of doing anything.
+
+## Available commands (Incident feature)
+
+Ported from a separate Python bot: a "Days since last incident" sign, kept up to date as an image in a Discord channel. All subcommands require the **Manage Roles** permission.
+
+- `/incident channel channel:<#channel>` — sets the channel where the sign is posted. Also posts the sign right away with whatever count is currently set (0 the first time).
+- `/incident setnumber numero:<0-100000>` — manually sets the counter to a specific number and refreshes the sign.
+- `/incident reset` — sets the counter back to 0 (i.e. "an incident just happened") and refreshes the sign.
+
+Every day at midnight (same `TZ` used by the birthday feature) the counter is incremented by 1 and the sign is regenerated, for every guild that has a channel configured. Only one sign message is ever visible at a time: posting a new one deletes the previous one first. Unlike the original bot (a 24h loop timed from the last restart), the daily increment now runs at a fixed time regardless of restarts, and does **not** also fire once at every startup — so restarting the bot never double-counts a day.
 
 ## Hosting
 
