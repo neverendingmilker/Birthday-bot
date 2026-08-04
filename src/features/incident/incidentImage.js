@@ -9,7 +9,7 @@ const FONT_PATH = path.join(__dirname, 'assets', 'HelveticaNeueBold.ttf');
 const FONT_FAMILY = 'IncidentCounterFont';
 const FONT_SIZE = 400;
 const TEXT_COLOR = '#181a19';
-const TOP_OFFSET = 30; // was 10 — nudged down 20px, sat too high on the sign
+const TOP_OFFSET = 50; // was 10 — nudged down 40px total, sat too high on the sign
 
 let fontRegistered = false;
 function ensureFontRegistered() {
