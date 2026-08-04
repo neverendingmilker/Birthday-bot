@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const { client: db } = require('../../database/db');
 
 const EMBED_COLOR = 0x5865f2;
+const REPOST_DELAY_MS = 10_000; // gap between the old sticky disappearing and the new one being posted
 
 // In-memory cache keyed by channel_id, kept in sync with the sticky_messages
 // table. Reading from here avoids a DB round-trip on every single message
@@ -23,6 +24,10 @@ function buildStickyEmbed(content) {
     .setColor(EMBED_COLOR)
     .setDescription(content)
     .setFooter({ text: '📌 Sticky message' });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Loads every configured sticky from the DB into the in-memory cache.
@@ -59,6 +64,12 @@ async function repostSticky(channel, sticky) {
     if (sticky.lastMessageId) {
       const oldMessage = await channel.messages.fetch(sticky.lastMessageId).catch(() => null);
       if (oldMessage) await oldMessage.delete().catch(() => null);
+
+      // Only wait when there was actually a previous sticky to remove — the very
+      // first post for a channel (setSticky with no lastMessageId yet) should stay
+      // instant. While we wait, the channel is still in postingInProgress, so any
+      // messages sent in the meantime won't trigger a second, overlapping repost.
+      await sleep(REPOST_DELAY_MS);
     }
 
     const newMessage = await channel.send({ embeds: [buildStickyEmbed(sticky.content)] });
