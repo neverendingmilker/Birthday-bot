@@ -7,7 +7,16 @@ const STATUS_COLORS = {
   denied: 0xff0000,
 };
 
-const VOTE_EMOJIS = ['⬆️', '⬇️'];
+// Custom emoji used both as vote reactions and as the admin decide-by-react
+// shortcut. The bot must be a member of at least one server that owns these
+// emoji for message.react() to work.
+const UPVOTE_EMOJI = { name: 'check00', id: '1533958917682364629' };
+const DOWNVOTE_EMOJI = { name: 'wrong00', id: '1533958951924666438' };
+const VOTE_EMOJIS = [UPVOTE_EMOJI, DOWNVOTE_EMOJI];
+
+function reactIdentifier(emoji) {
+  return `${emoji.name}:${emoji.id}`;
+}
 
 function buildSuggestionEmbed(suggestion, authorTag, authorAvatarURL) {
   const color = STATUS_COLORS[suggestion.status] || STATUS_COLORS.pending;
@@ -24,7 +33,7 @@ function buildSuggestionEmbed(suggestion, authorTag, authorAvatarURL) {
 // in parallel doesn't guarantee they show up left-to-right in the client.
 async function addVoteReactions(message) {
   for (const emoji of VOTE_EMOJIS) {
-    await message.react(emoji).catch(() => null);
+    await message.react(reactIdentifier(emoji)).catch(() => null);
   }
 }
 
@@ -59,6 +68,17 @@ async function getSuggestion(guildId, number) {
   const result = await db.execute({
     sql: 'SELECT * FROM suggestions WHERE guild_id = ? AND number = ?',
     args: [guildId, number],
+  });
+  return result.rows[0] || null;
+}
+
+// Used by the reactionAdd event: given the message someone reacted to, finds
+// the suggestion it belongs to (if any). message_id is globally unique on
+// Discord, so no need for a guild filter here.
+async function getSuggestionByMessageId(messageId) {
+  const result = await db.execute({
+    sql: 'SELECT * FROM suggestions WHERE message_id = ?',
+    args: [messageId],
   });
   return result.rows[0] || null;
 }
@@ -154,22 +174,23 @@ async function editContent(guild, number, newContent) {
 
 // Marks a suggestion as approved/rejected and posts an updated copy (color +
 // ✅/❌ next to the number in the title) without deleting the original
-// message, then removes the row from the database — decided suggestions
-// aren't kept around.
+// message. The row is kept in the database (not deleted) so future
+// suggestions keep numbering correctly instead of reusing/skipping numbers.
 async function setStatus(guild, number, status, decidedById) {
   const suggestion = await getSuggestion(guild.id, number);
   if (!suggestion) return null;
 
+  const decidedAt = Date.now();
+  await db.execute({
+    sql: 'UPDATE suggestions SET status = ?, decided_by = ?, decided_at = ? WHERE guild_id = ? AND number = ?',
+    args: [status, decidedById, decidedAt, guild.id, number],
+  });
+
   suggestion.status = status;
   suggestion.decided_by = decidedById;
-  suggestion.decided_at = Date.now();
+  suggestion.decided_at = decidedAt;
 
   await repostSuggestion(guild, suggestion);
-
-  await db.execute({
-    sql: 'DELETE FROM suggestions WHERE guild_id = ? AND number = ?',
-    args: [guild.id, number],
-  });
 
   return suggestion;
 }
@@ -183,10 +204,13 @@ async function listPending(guildId) {
 }
 
 module.exports = {
+  UPVOTE_EMOJI,
+  DOWNVOTE_EMOJI,
   getChannelId,
   setChannel,
   removeChannel,
   getSuggestion,
+  getSuggestionByMessageId,
   createSuggestion,
   editContent,
   setStatus,

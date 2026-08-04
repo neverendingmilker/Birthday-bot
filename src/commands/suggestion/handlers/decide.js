@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const suggestionManager = require('../../../features/suggestion/suggestionManager');
 
 async function decide(interaction, status, verb, pastTense) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({ content: `⚠️ You need admin permissions to ${verb} suggestions.`, ephemeral: true });
     return;
   }

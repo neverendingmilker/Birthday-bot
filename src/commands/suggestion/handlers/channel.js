@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const suggestionManager = require('../../../features/suggestion/suggestionManager');
 
 async function handleChannelSet(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({
       content: '⚠️ You need admin permissions to configure the suggestion channel.',
       ephemeral: true,
@@ -30,7 +30,7 @@ async function handleChannelSet(interaction) {
 }
 
 async function handleChannelRemove(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({
       content: '⚠️ You need admin permissions to configure the suggestion channel.',
       ephemeral: true,
@@ -41,7 +41,7 @@ async function handleChannelRemove(interaction) {
   await suggestionManager.removeChannel(interaction.guild.id);
 
   await interaction.reply({
-    content: '✅ Suggestion channel removed. `/suggestion create` will be unavailable until a new one is set.',
+    content: '✅ Suggestion channel removed. `/suggestion add` will be unavailable until a new one is set.',
     ephemeral: true,
   });
 }

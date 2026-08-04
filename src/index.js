@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const config = require('./config/config');
 const { loadCommands } = require('./utils/loadCommands');
 const { loadEvents } = require('./utils/loadEvents');
@@ -14,7 +14,12 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers, // needed to assign/remove roles and fetch members
     GatewayIntentBits.GuildMessages, // needed for the sticky-message feature to detect new activity
+    GatewayIntentBits.GuildMessageReactions, // needed for the suggestion feature's react-to-decide buttons
   ],
+  // Needed so reactionAdd still fires for messages/reactions the bot hasn't
+  // got in its own cache (e.g. a suggestion posted days ago, before a
+  // restart) — without partials Discord silently drops those events.
+  partials: [Partials.Message, Partials.Reaction, Partials.User],
 });
 
 client.commands = loadCommands();

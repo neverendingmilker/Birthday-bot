@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
-const { handleCreate } = require('./handlers/create');
+const { handleAdd } = require('./handlers/add');
 const { handleEdit } = require('./handlers/edit');
 const { handleApprove, handleReject } = require('./handlers/decide');
 const { handleChannelSet, handleChannelRemove } = require('./handlers/channel');
@@ -10,7 +10,7 @@ const data = new SlashCommandBuilder()
   .setDescription('Suggestion management')
   .addSubcommand((sub) =>
     sub
-      .setName('create')
+      .setName('add')
       .setDescription('Submit a new suggestion')
       .addStringOption((opt) =>
         opt.setName('text').setDescription('Your suggestion').setMaxLength(1000).setRequired(true)
@@ -76,8 +76,8 @@ async function execute(interaction) {
   }
 
   switch (sub) {
-    case 'create':
-      return handleCreate(interaction);
+    case 'add':
+      return handleAdd(interaction);
     case 'edit':
       return handleEdit(interaction);
     case 'list':
