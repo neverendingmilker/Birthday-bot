@@ -5,7 +5,7 @@ const { handleList } = require('./handlers/list');
 const { handleToggle } = require('./handlers/toggle');
 
 const data = new SlashCommandBuilder()
-  .setName('customrole')
+  .setName('boosterlink')
   .setDescription('Tracks custom perk roles given to server boosters, so they auto-remove when the boost ends')
   .addSubcommand((sub) =>
     sub

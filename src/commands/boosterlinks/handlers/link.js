@@ -1,5 +1,5 @@
 const { PermissionFlagsBits } = require('discord.js');
-const customRoleManager = require('../../../features/customroles/customRoleManager');
+const boosterLinkManager = require('../../../features/boosterlinks/boosterLinkManager');
 
 async function handleLink(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
@@ -14,9 +14,9 @@ async function handleLink(interaction) {
   const role = interaction.options.getRole('role');
 
   try {
-    await customRoleManager.link(interaction.guild, user.id, role, interaction.user.id);
+    await boosterLinkManager.link(interaction.guild, user.id, role, interaction.user.id);
   } catch (err) {
-    if (err instanceof customRoleManager.ValidationError) {
+    if (err instanceof boosterLinkManager.ValidationError) {
       await interaction.reply({ content: `⚠️ ${err.message}`, ephemeral: true });
       return;
     }
@@ -33,8 +33,8 @@ async function handleLink(interaction) {
     warning = `\n⚠️ Heads up: ${user} doesn't currently have the Server Booster role — the link is saved anyway, and will trigger the next time they lose that role.`;
   }
 
-  const enabled = await customRoleManager.isEnabled(interaction.guildId);
-  const disabledNote = enabled ? '' : '\n⚠️ Note: the feature is currently **disabled** for this server (`/customrole toggle`), so auto-removal won\'t run until it\'s re-enabled.';
+  const enabled = await boosterLinkManager.isEnabled(interaction.guildId);
+  const disabledNote = enabled ? '' : '\n⚠️ Note: the feature is currently **disabled** for this server (`/boosterlink toggle`), so auto-removal won\'t run until it\'s re-enabled.';
 
   await interaction.reply({
     content: `✅ ${role} is now linked to ${user}. It'll be automatically removed if they stop boosting.${warning}${disabledNote}`,

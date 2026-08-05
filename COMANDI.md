@@ -36,13 +36,22 @@ Riservato agli admin. Mantiene aggiornato in un canale il cartello "Days since l
 
 Ogni giorno a mezzanotte il contatore aumenta automaticamente di 1 e il cartello viene rigenerato. Viene sempre mantenuto un solo messaggio visibile: quando il cartello si aggiorna, quello vecchio viene cancellato.
 
-## 🚀 Ruoli personalizzati booster (`/customrole`)
+## 🚀 Ruoli personalizzati booster (`/boosterlink`)
 
 Riservato agli admin. Collega un ruolo personalizzato (che assegni manualmente a un booster) al relativo utente, così che venga rimosso automaticamente se smette di boostare il server.
 
-- **`/customrole link`** — Collega un ruolo personalizzato a un booster.
-- **`/customrole unlink`** — Smette di tenere traccia del collegamento (non rimuove il ruolo dall'utente). Il ruolo è opzionale: se omesso, scollega tutti i ruoli associati a quell'utente in una volta sola.
-- **`/customrole list`** — Elenca i collegamenti attivi, opzionalmente filtrati per utente.
-- **`/customrole toggle`** — Abilita/disabilita con un solo comando la rimozione automatica per l'intero server. I collegamenti restano salvati anche da disabilitata.
+- **`/boosterlink link`** — Collega un ruolo personalizzato a un booster.
+- **`/boosterlink unlink`** — Smette di tenere traccia del collegamento (non rimuove il ruolo dall'utente). Il ruolo è opzionale: se omesso, scollega tutti i ruoli associati a quell'utente in una volta sola.
+- **`/boosterlink list`** — Elenca i collegamenti attivi, opzionalmente filtrati per utente.
+- **`/boosterlink toggle`** — Abilita/disabilita con un solo comando la rimozione automatica per l'intero server. I collegamenti restano salvati anche da disabilitata.
 
 Quando un utente perde il ruolo Booster di Discord (scadenza del boost, rimozione manuale, ecc.), tutti i ruoli personalizzati collegati a lui vengono rimossi automaticamente. Gli utenti con il ruolo `1090658915810820156` sono sempre esclusi da questa rimozione automatica, anche se hanno ruoli collegati e perdono il ruolo booster.
+
+## 🔗 Collegamento tra due ruoli (`/rolelink`)
+
+Riservato agli admin. Versione generica del concetto sopra, non legata al boost: collega due ruoli qualsiasi in modo che perdere il primo rimuova automaticamente il secondo.
+
+- **`/rolelink link`** — Collega ruolo1 → ruolo2. Opzione `viceversa` (facoltativa, default no): se attiva, perdere ruolo2 rimuove anche ruolo1.
+- **`/rolelink unlink`** — Rimuove un collegamento (stesso ordine ruolo1/ruolo2 usato alla creazione).
+- **`/rolelink list`** — Elenca tutti i collegamenti configurati nel server.
+- **`/rolelink toggle`** — Abilita/disabilita la rimozione automatica per l'intero server.

@@ -1,5 +1,5 @@
 const { PermissionFlagsBits } = require('discord.js');
-const customRoleManager = require('../../../features/customroles/customRoleManager');
+const boosterLinkManager = require('../../../features/boosterlinks/boosterLinkManager');
 
 async function handleUnlink(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
@@ -14,7 +14,7 @@ async function handleUnlink(interaction) {
   const role = interaction.options.getRole('role');
 
   if (role) {
-    await customRoleManager.unlink(interaction.guildId, user.id, role.id);
+    await boosterLinkManager.unlink(interaction.guildId, user.id, role.id);
     await interaction.reply({
       content: `✅ Stopped tracking ${role} for ${user}. The role itself was **not** removed from them.`,
       ephemeral: true,
@@ -22,7 +22,7 @@ async function handleUnlink(interaction) {
     return;
   }
 
-  const removedCount = await customRoleManager.unlink(interaction.guildId, user.id, null);
+  const removedCount = await boosterLinkManager.unlink(interaction.guildId, user.id, null);
 
   if (removedCount === 0) {
     await interaction.reply({ content: `${user} had no tracked custom roles.`, ephemeral: true });

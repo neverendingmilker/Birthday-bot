@@ -31,8 +31,15 @@ src/
         channel.js
         setnumber.js
         reset.js
-    customroles/
-      index.js       (defines /customrole link, unlink, list, toggle)
+    boosterlinks/
+      index.js       (defines /boosterlink link, unlink, list, toggle)
+      handlers/
+        link.js
+        unlink.js
+        list.js
+        toggle.js
+    rolelinks/
+      index.js       (defines /rolelink link, unlink, list, toggle)
       handlers/
         link.js
         unlink.js
@@ -55,9 +62,12 @@ src/
       incidentImage.js       (renders the sign PNG with the current count, via @napi-rs/canvas)
       incidentScheduler.js   (cron job: +1 every day at midnight)
       assets/                (base sign image + font, ported from the original Python bot)
-    customroles/
-      customRoleManager.js     (validation + auto-removal logic, feature on/off toggle)
-      customRoleRepository.js  (SQL queries: links + per-guild enabled flag)
+    boosterlinks/
+      boosterLinkManager.js     (validation + auto-removal logic, feature on/off toggle)
+      boosterLinkRepository.js  (SQL queries: links + per-guild enabled flag)
+    rolelinks/
+      roleLinkManager.js     (validation + cascading removal logic, incl. "viceversa")
+      roleLinkRepository.js  (SQL queries)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -138,12 +148,23 @@ Every day at midnight (same `TZ` used by the birthday feature) the counter is in
 
 Tracks custom perk roles manually given to server boosters, so they get auto-removed if the person stops boosting. All subcommands require the **Manage Roles** permission.
 
-- `/customrole link user:<user> role:<role>` — links a custom role to a booster.
-- `/customrole unlink user:<user> role:<role>` — stops tracking that link (does **not** remove the role itself). `role` is optional: omit it to untrack every role linked to that user at once.
-- `/customrole list [user]` — lists tracked links, optionally filtered to one user.
-- `/customrole toggle enabled:<true/false>` — enables or disables auto-removal for the whole server with a single command. Existing links are kept while disabled; nothing is removed until it's turned back on.
+- `/boosterlink link user:<user> role:<role>` — links a custom role to a booster.
+- `/boosterlink unlink user:<user> role:<role>` — stops tracking that link (does **not** remove the role itself). `role` is optional: omit it to untrack every role linked to that user at once.
+- `/boosterlink list [user]` — lists tracked links, optionally filtered to one user.
+- `/boosterlink toggle enabled:<true/false>` — enables or disables auto-removal for the whole server with a single command. Existing links are kept while disabled; nothing is removed until it's turned back on.
 
 Listens on Discord's `guildMemberUpdate` event: whenever a member who had the server's Booster role no longer has it (boost expired, manually removed, etc.), every custom role linked to them is removed and the link is deleted. Requires the bot's own role to sit above the linked role in the role list. Members with role `1090658915810820156` are always exempt from this auto-removal, even if they have linked roles and lose the Booster role.
+
+## Available commands (Role link feature)
+
+Generic version of the same idea, not tied to boosting: links any two roles so that losing one auto-removes the other. Requires the **Manage Roles** permission.
+
+- `/rolelink link role1:<role> role2:<role> [viceversa:<true/false>]` — losing `role1` removes `role2`. If `viceversa` is `true` (default `false`), losing `role2` also removes `role1`.
+- `/rolelink unlink role1:<role> role2:<role>` — removes that link (same role order as when it was created).
+- `/rolelink list` — lists all configured role links in the server.
+- `/rolelink toggle enabled:<true/false>` — enables or disables role link auto-removal for the whole server.
+
+Also listens on `guildMemberUpdate`, same mechanism as the booster-link feature above. The bot's own role must sit above both roles involved in a link.
 
 ## Hosting
 

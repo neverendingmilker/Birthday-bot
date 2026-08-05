@@ -1,5 +1,5 @@
 const { PermissionFlagsBits } = require('discord.js');
-const customRoleManager = require('../../../features/customroles/customRoleManager');
+const boosterLinkManager = require('../../../features/boosterlinks/boosterLinkManager');
 
 async function handleToggle(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
@@ -12,7 +12,7 @@ async function handleToggle(interaction) {
 
   const enabled = interaction.options.getBoolean('enabled');
 
-  await customRoleManager.setEnabled(interaction.guildId, enabled);
+  await boosterLinkManager.setEnabled(interaction.guildId, enabled);
 
   await interaction.reply({
     content: enabled

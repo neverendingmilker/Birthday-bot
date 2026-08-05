@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const customRoleManager = require('../../../features/customroles/customRoleManager');
+const boosterLinkManager = require('../../../features/boosterlinks/boosterLinkManager');
 const { sendPaginated } = require('../../../utils/pagination');
 
 const ITEMS_PER_PAGE = 15;
@@ -9,8 +9,8 @@ async function handleList(interaction) {
   const user = interaction.options.getUser('user');
 
   const links = user
-    ? await customRoleManager.listForUser(interaction.guildId, user.id)
-    : await customRoleManager.listAll(interaction.guildId);
+    ? await boosterLinkManager.listForUser(interaction.guildId, user.id)
+    : await boosterLinkManager.listAll(interaction.guildId);
 
   if (links.length === 0) {
     await interaction.reply({

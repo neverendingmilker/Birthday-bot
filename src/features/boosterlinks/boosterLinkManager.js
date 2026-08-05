@@ -1,4 +1,4 @@
-const repo = require('./customRoleRepository');
+const repo = require('./boosterLinkRepository');
 
 class ValidationError extends Error {}
 
@@ -67,17 +67,17 @@ async function handleMemberUpdate(oldMember, newMember) {
       if (newMember.roles.cache.has(linkRow.role_id)) {
         await newMember.roles.remove(linkRow.role_id).catch((err) => {
           console.warn(
-            `[customroles] Could not remove role ${linkRow.role_id} from ${newMember.id} in guild ${newMember.guild.id}:`,
+            `[boosterlinks] Could not remove role ${linkRow.role_id} from ${newMember.id} in guild ${newMember.guild.id}:`,
             err.message
           );
         });
       }
       await repo.removeLink(linkRow.guild_id, linkRow.user_id, linkRow.role_id);
       console.log(
-        `[customroles] ${newMember.id} stopped boosting guild ${newMember.guild.id}; removed and untracked role ${linkRow.role_id}.`
+        `[boosterlinks] ${newMember.id} stopped boosting guild ${newMember.guild.id}; removed and untracked role ${linkRow.role_id}.`
       );
     } catch (err) {
-      console.error(`[customroles] Error handling custom-role cleanup for ${newMember.id}:`, err);
+      console.error(`[boosterlinks] Error handling custom-role cleanup for ${newMember.id}:`, err);
     }
   }
 }

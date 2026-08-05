@@ -85,17 +85,30 @@ async function createTables() {
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (guild_id, channel_id)
       )`,
-      `CREATE TABLE IF NOT EXISTS custom_role_config (
+      `CREATE TABLE IF NOT EXISTS booster_link_config (
         guild_id TEXT PRIMARY KEY,
         enabled INTEGER NOT NULL DEFAULT 1
       )`,
-      `CREATE TABLE IF NOT EXISTS custom_role_links (
+      `CREATE TABLE IF NOT EXISTS booster_link_links (
         guild_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         role_id TEXT NOT NULL,
         created_by TEXT,
         created_at INTEGER,
         PRIMARY KEY (guild_id, user_id, role_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS role_link_config (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1
+      )`,
+      `CREATE TABLE IF NOT EXISTS role_links (
+        guild_id TEXT NOT NULL,
+        role_a_id TEXT NOT NULL,
+        role_b_id TEXT NOT NULL,
+        bidirectional INTEGER NOT NULL DEFAULT 0,
+        created_by TEXT,
+        created_at INTEGER,
+        PRIMARY KEY (guild_id, role_a_id, role_b_id)
       )`,
       `CREATE TABLE IF NOT EXISTS incident_config (
         guild_id TEXT PRIMARY KEY,
@@ -180,6 +193,21 @@ async function migrate() {
 
   if (!verifyReportColumnNames.includes('moderator_id')) {
     await client.execute('ALTER TABLE verify_reports ADD COLUMN moderator_id TEXT');
+  }
+
+  // One-time move of data from the old custom_role_* tables (feature was renamed
+  // to booster_link_*) into the new ones, then drop the old ones. Safe to run on
+  // every startup: only runs while the old tables still exist.
+  const allTables = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table'");
+  const tableNames = allTables.rows.map((row) => row.name);
+
+  if (tableNames.includes('custom_role_config')) {
+    await client.execute('INSERT OR IGNORE INTO booster_link_config SELECT * FROM custom_role_config');
+    await client.execute('DROP TABLE custom_role_config');
+  }
+  if (tableNames.includes('custom_role_links')) {
+    await client.execute('INSERT OR IGNORE INTO booster_link_links SELECT * FROM custom_role_links');
+    await client.execute('DROP TABLE custom_role_links');
   }
 }
 
