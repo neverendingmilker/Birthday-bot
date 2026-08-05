@@ -45,7 +45,6 @@ const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt.setName('verification').setDescription('How the verification was done').setRequired(true)
       )
-      .addStringOption((opt) => opt.setName('social').setDescription('Social media / handle').setRequired(true))
   )
   .addSubcommand((sub) =>
     sub

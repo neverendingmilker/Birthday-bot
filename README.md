@@ -28,9 +28,16 @@ src/
     incident/
       index.js       (defines /incident channel, setnumber, reset)
       handlers/
-        config.js
+        channel.js
         setnumber.js
         reset.js
+    customroles/
+      index.js       (defines /customrole link, unlink, list, toggle)
+      handlers/
+        link.js
+        unlink.js
+        list.js
+        toggle.js
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -48,6 +55,9 @@ src/
       incidentImage.js       (renders the sign PNG with the current count, via @napi-rs/canvas)
       incidentScheduler.js   (cron job: +1 every day at midnight)
       assets/                (base sign image + font, ported from the original Python bot)
+    customroles/
+      customRoleManager.js     (validation + auto-removal logic, feature on/off toggle)
+      customRoleRepository.js  (SQL queries: links + per-guild enabled flag)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -116,13 +126,24 @@ Each of the three types is independent — e.g. running `/verify domme` never to
 
 ## Available commands (Incident feature)
 
-Ported from a separate Python bot: a "Days since last incident" sign, kept up to date as an image in a Discord channel. All subcommands require the **Manage Roles** permission.
+Ported from a separate Python bot: a "Days since last incident" sign, kept up to date as an image in a Discord channel. All subcommands require the **Administrator** permission.
 
 - `/incident channel channel:<#channel>` — sets the channel where the sign is posted. Also posts the sign right away with whatever count is currently set (0 the first time).
 - `/incident setnumber numero:<0-100000>` — manually sets the counter to a specific number and refreshes the sign.
 - `/incident reset` — sets the counter back to 0 (i.e. "an incident just happened") and refreshes the sign.
 
 Every day at midnight (same `TZ` used by the birthday feature) the counter is incremented by 1 and the sign is regenerated, for every guild that has a channel configured. Only one sign message is ever visible at a time: posting a new one deletes the previous one first. Unlike the original bot (a 24h loop timed from the last restart), the daily increment now runs at a fixed time regardless of restarts, and does **not** also fire once at every startup — so restarting the bot never double-counts a day.
+
+## Available commands (Custom role feature)
+
+Tracks custom perk roles manually given to server boosters, so they get auto-removed if the person stops boosting. All subcommands require the **Manage Roles** permission.
+
+- `/customrole link user:<user> role:<role>` — links a custom role to a booster.
+- `/customrole unlink user:<user> role:<role>` — stops tracking that link (does **not** remove the role itself).
+- `/customrole list [user]` — lists tracked links, optionally filtered to one user.
+- `/customrole toggle enabled:<true/false>` — enables or disables auto-removal for the whole server with a single command. Existing links are kept while disabled; nothing is removed until it's turned back on.
+
+Listens on Discord's `guildMemberUpdate` event: whenever a member who had the server's Booster role no longer has it (boost expired, manually removed, etc.), every custom role linked to them is removed and the link is deleted. Requires the bot's own role to sit above the linked role in the role list.
 
 ## Hosting
 

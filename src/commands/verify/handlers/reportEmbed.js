@@ -20,11 +20,13 @@ function buildReportEmbed({
       [
         `**Member:** ${userMention}`,
         `**Verification:** ${verification}`,
-        `**Social:** ${social}`,
+        social ? `**Social:** ${social}` : null,
         `**User ID:** ${userId}`,
         `**Verified on:** <t:${verifiedAtSeconds}:F>`,
         `**Verified by:** ${moderatorMention}`,
-      ].join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
     );
 }
 

@@ -1,0 +1,80 @@
+const repo = require('./customRoleRepository');
+
+class ValidationError extends Error {}
+
+async function isEnabled(guildId) {
+  return repo.isEnabled(guildId);
+}
+
+async function setEnabled(guildId, enabled) {
+  await repo.setEnabled(guildId, enabled);
+}
+
+// Links a custom perk role to a booster. Requires the bot's own top role to sit
+// above the linked role, otherwise it wouldn't be able to remove it later.
+async function link(guild, userId, role, createdBy) {
+  const botMember = guild.members.me;
+  if (!botMember || botMember.roles.highest.position <= role.position) {
+    throw new ValidationError(
+      `My role needs to be higher than ${role} in the role list for me to be able to remove it later. Move my role above it in Server Settings → Roles and try again.`
+    );
+  }
+
+  await repo.addLink(guild.id, userId, role.id, createdBy);
+}
+
+async function unlink(guildId, userId, roleId) {
+  await repo.removeLink(guildId, userId, roleId);
+}
+
+async function listForUser(guildId, userId) {
+  return repo.getLinksForUser(guildId, userId);
+}
+
+async function listAll(guildId) {
+  return repo.getAllLinksInGuild(guildId);
+}
+
+// Called from guildMemberUpdate: if the member just lost the server's Booster
+// role, remove every custom role linked to them and stop tracking those links —
+// the perk no longer applies once they stop boosting.
+async function handleMemberUpdate(oldMember, newMember) {
+  if (!(await repo.isEnabled(newMember.guild.id))) return; // feature disabled for this guild
+
+  const hadBooster = oldMember.roles.premiumSubscriberRole !== null;
+  const hasBooster = newMember.roles.premiumSubscriberRole !== null;
+  if (!hadBooster || hasBooster) return; // wasn't a booster before, or still is one
+
+  const links = await repo.getLinksForUser(newMember.guild.id, newMember.id);
+  if (links.length === 0) return;
+
+  for (const linkRow of links) {
+    try {
+      if (newMember.roles.cache.has(linkRow.role_id)) {
+        await newMember.roles.remove(linkRow.role_id).catch((err) => {
+          console.warn(
+            `[customroles] Could not remove role ${linkRow.role_id} from ${newMember.id} in guild ${newMember.guild.id}:`,
+            err.message
+          );
+        });
+      }
+      await repo.removeLink(linkRow.guild_id, linkRow.user_id, linkRow.role_id);
+      console.log(
+        `[customroles] ${newMember.id} stopped boosting guild ${newMember.guild.id}; removed and untracked role ${linkRow.role_id}.`
+      );
+    } catch (err) {
+      console.error(`[customroles] Error handling custom-role cleanup for ${newMember.id}:`, err);
+    }
+  }
+}
+
+module.exports = {
+  ValidationError,
+  isEnabled,
+  setEnabled,
+  link,
+  unlink,
+  listForUser,
+  listAll,
+  handleMemberUpdate,
+};

@@ -2,9 +2,9 @@ const { PermissionFlagsBits } = require('discord.js');
 const incidentManager = require('../../../features/incident/incidentManager');
 
 async function handleSetNumber(interaction) {
-  if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.memberPermissions.has(PermissionFlagsBits.Administrator)) {
     await interaction.reply({
-      content: '❌ You need the "Manage Roles" permission to use this command.',
+      content: '❌ You need Administrator permission to use this command.',
       ephemeral: true,
     });
     return;

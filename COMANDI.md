@@ -23,7 +23,7 @@ Il giorno del compleanno il bot assegna automaticamente il ruolo (se configurato
 Riservato agli admin.
 
 - **`/verify config`** — Imposta i ruoli da assegnare per ciascun tipo di verifica (sub / domme / maledom), l'eventuale ruolo condiviso da rimuovere quando si verifica qualcuno, e il canale dove postare i report.
-- **`/verify sub`**, **`/verify domme`**, **`/verify maledom`** — Verifica un utente come uno dei tre tipi: gli assegna il ruolo corrispondente, gli toglie l'eventuale ruolo di rimozione configurato, e posta un report nel canale impostato. Se l'utente aveva già un report precedente, quello vecchio viene sostituito dal nuovo.
+- **`/verify sub`**, **`/verify domme`**, **`/verify maledom`** — Verifica un utente come uno dei tre tipi: gli assegna il ruolo corrispondente, gli toglie l'eventuale ruolo di rimozione configurato, e posta un report nel canale impostato. Se l'utente aveva già un report precedente, quello vecchio viene sostituito dal nuovo. **Nota:** `/verify sub` non ha più il campo "social" (rimosso su richiesta); `/verify domme` e `/verify maledom` lo mantengono.
 - **`/verify edit`** — Modifica i dati (verifica/social) dell'ultimo report di un utente.
 
 ## 🪧 Giorni dall'ultimo incidente (`/incident`)
@@ -35,3 +35,14 @@ Riservato agli admin. Mantiene aggiornato in un canale il cartello "Days since l
 - **`/incident reset`** — Azzera il contatore (da usare quando è appena successo un incidente).
 
 Ogni giorno a mezzanotte il contatore aumenta automaticamente di 1 e il cartello viene rigenerato. Viene sempre mantenuto un solo messaggio visibile: quando il cartello si aggiorna, quello vecchio viene cancellato.
+
+## 🚀 Ruoli personalizzati booster (`/customrole`)
+
+Riservato agli admin. Collega un ruolo personalizzato (che assegni manualmente a un booster) al relativo utente, così che venga rimosso automaticamente se smette di boostare il server.
+
+- **`/customrole link`** — Collega un ruolo personalizzato a un booster.
+- **`/customrole unlink`** — Smette di tenere traccia del collegamento (non rimuove il ruolo dall'utente).
+- **`/customrole list`** — Elenca i collegamenti attivi, opzionalmente filtrati per utente.
+- **`/customrole toggle`** — Abilita/disabilita con un solo comando la rimozione automatica per l'intero server. I collegamenti restano salvati anche da disabilitata.
+
+Quando un utente perde il ruolo Booster di Discord (scadenza del boost, rimozione manuale, ecc.), tutti i ruoli personalizzati collegati a lui vengono rimossi automaticamente.

@@ -9,7 +9,9 @@ async function handleVerifyType(interaction, type) {
   const label = verifyManager.TYPE_LABELS[type];
   const targetUser = interaction.options.getUser('user');
   const verification = interaction.options.getString('verification');
-  const social = interaction.options.getString('social');
+  // /verify sub no longer has a "social" option — for domme/maledom it's still
+  // required, for sub this is simply null and we store/display it as empty.
+  const social = interaction.options.getString('social') ?? '';
   const guild = interaction.guild;
 
   const config = await verifyManager.getGuildConfig(interaction.guildId);

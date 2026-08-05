@@ -25,6 +25,13 @@ const data = new SlashCommandBuilder()
           .addChannelTypes(...STICKY_CHANNEL_TYPES)
           .setRequired(true)
       )
+      .addStringOption((opt) =>
+        opt
+          .setName('message')
+          .setDescription('The message content to stick')
+          .setMaxLength(4000)
+          .setRequired(true)
+      )
   )
   .addSubcommand((sub) =>
     sub
