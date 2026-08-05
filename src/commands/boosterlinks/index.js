@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { handleLink } = require('./handlers/link');
 const { handleUnlink } = require('./handlers/unlink');
 const { handleList } = require('./handlers/list');
@@ -7,6 +7,7 @@ const { handleToggle } = require('./handlers/toggle');
 const data = new SlashCommandBuilder()
   .setName('boosterlink')
   .setDescription('Tracks custom perk roles given to server boosters, so they auto-remove when the boost ends')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
   .addSubcommand((sub) =>
     sub
       .setName('link')

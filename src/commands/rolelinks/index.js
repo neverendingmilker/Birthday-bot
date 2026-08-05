@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { handleLink } = require('./handlers/link');
 const { handleUnlink } = require('./handlers/unlink');
 const { handleList } = require('./handlers/list');
@@ -7,6 +7,7 @@ const { handleToggle } = require('./handlers/toggle');
 const data = new SlashCommandBuilder()
   .setName('rolelink')
   .setDescription('Links two roles: losing role1 automatically removes role2 (optionally the other way too)')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
   .addSubcommand((sub) =>
     sub
       .setName('link')
