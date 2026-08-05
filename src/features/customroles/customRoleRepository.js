@@ -43,6 +43,17 @@ async function removeLink(guildId, userId, roleId) {
   });
 }
 
+// Removes every link for a user in a guild (used when /customrole unlink is
+// called with no specific role). Returns how many rows were deleted.
+async function removeAllLinksForUser(guildId, userId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'DELETE FROM custom_role_links WHERE guild_id = ? AND user_id = ?',
+    args: [guildId, userId],
+  });
+  return result.rowsAffected ?? 0;
+}
+
 async function getLinksForUser(guildId, userId) {
   await db.ready;
   const result = await db.client.execute({
@@ -66,6 +77,7 @@ module.exports = {
   setEnabled,
   addLink,
   removeLink,
+  removeAllLinksForUser,
   getLinksForUser,
   getAllLinksInGuild,
 };

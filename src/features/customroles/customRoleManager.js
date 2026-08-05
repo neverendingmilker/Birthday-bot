@@ -2,6 +2,11 @@ const repo = require('./customRoleRepository');
 
 class ValidationError extends Error {}
 
+// Members with this role are never touched by the auto-removal, even if they
+// have linked custom roles and stop boosting (e.g. staff/VIP who keep perks
+// regardless of boost status).
+const IGNORED_ROLE_ID = '1090658915810820156';
+
 async function isEnabled(guildId) {
   return repo.isEnabled(guildId);
 }
@@ -23,8 +28,15 @@ async function link(guild, userId, role, createdBy) {
   await repo.addLink(guild.id, userId, role.id, createdBy);
 }
 
+// Unlinks a specific role for a user, or every role linked to them if `roleId`
+// is omitted. Returns how many links were removed (only meaningful for the
+// "all" case, where the caller wants to know if anything was actually there).
 async function unlink(guildId, userId, roleId) {
-  await repo.removeLink(guildId, userId, roleId);
+  if (roleId) {
+    await repo.removeLink(guildId, userId, roleId);
+    return 1;
+  }
+  return repo.removeAllLinksForUser(guildId, userId);
 }
 
 async function listForUser(guildId, userId) {
@@ -44,6 +56,8 @@ async function handleMemberUpdate(oldMember, newMember) {
   const hadBooster = oldMember.roles.premiumSubscriberRole !== null;
   const hasBooster = newMember.roles.premiumSubscriberRole !== null;
   if (!hadBooster || hasBooster) return; // wasn't a booster before, or still is one
+
+  if (newMember.roles.cache.has(IGNORED_ROLE_ID)) return; // exempt from auto-removal regardless of boost status
 
   const links = await repo.getLinksForUser(newMember.guild.id, newMember.id);
   if (links.length === 0) return;

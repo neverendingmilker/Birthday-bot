@@ -139,11 +139,11 @@ Every day at midnight (same `TZ` used by the birthday feature) the counter is in
 Tracks custom perk roles manually given to server boosters, so they get auto-removed if the person stops boosting. All subcommands require the **Manage Roles** permission.
 
 - `/customrole link user:<user> role:<role>` — links a custom role to a booster.
-- `/customrole unlink user:<user> role:<role>` — stops tracking that link (does **not** remove the role itself).
+- `/customrole unlink user:<user> role:<role>` — stops tracking that link (does **not** remove the role itself). `role` is optional: omit it to untrack every role linked to that user at once.
 - `/customrole list [user]` — lists tracked links, optionally filtered to one user.
 - `/customrole toggle enabled:<true/false>` — enables or disables auto-removal for the whole server with a single command. Existing links are kept while disabled; nothing is removed until it's turned back on.
 
-Listens on Discord's `guildMemberUpdate` event: whenever a member who had the server's Booster role no longer has it (boost expired, manually removed, etc.), every custom role linked to them is removed and the link is deleted. Requires the bot's own role to sit above the linked role in the role list.
+Listens on Discord's `guildMemberUpdate` event: whenever a member who had the server's Booster role no longer has it (boost expired, manually removed, etc.), every custom role linked to them is removed and the link is deleted. Requires the bot's own role to sit above the linked role in the role list. Members with role `1090658915810820156` are always exempt from this auto-removal, even if they have linked roles and lose the Booster role.
 
 ## Hosting
 

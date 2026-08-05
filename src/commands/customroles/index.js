@@ -17,9 +17,14 @@ const data = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName('unlink')
-      .setDescription('Stop tracking a custom role for a user (does not remove the role itself)')
+      .setDescription('Stop tracking custom role(s) for a user (does not remove the role itself)')
       .addUserOption((opt) => opt.setName('user').setDescription('The user').setRequired(true))
-      .addRoleOption((opt) => opt.setName('role').setDescription('The role to stop tracking').setRequired(true))
+      .addRoleOption((opt) =>
+        opt
+          .setName('role')
+          .setDescription('The role to stop tracking (omit to untrack all of this user\'s linked roles)')
+          .setRequired(false)
+      )
   )
   .addSubcommand((sub) =>
     sub

@@ -13,10 +13,24 @@ async function handleUnlink(interaction) {
   const user = interaction.options.getUser('user');
   const role = interaction.options.getRole('role');
 
-  await customRoleManager.unlink(interaction.guildId, user.id, role.id);
+  if (role) {
+    await customRoleManager.unlink(interaction.guildId, user.id, role.id);
+    await interaction.reply({
+      content: `✅ Stopped tracking ${role} for ${user}. The role itself was **not** removed from them.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const removedCount = await customRoleManager.unlink(interaction.guildId, user.id, null);
+
+  if (removedCount === 0) {
+    await interaction.reply({ content: `${user} had no tracked custom roles.`, ephemeral: true });
+    return;
+  }
 
   await interaction.reply({
-    content: `✅ Stopped tracking ${role} for ${user}. The role itself was **not** removed from them.`,
+    content: `✅ Stopped tracking all ${removedCount} custom role(s) linked to ${user}. The roles themselves were **not** removed from them.`,
     ephemeral: true,
   });
 }

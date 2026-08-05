@@ -41,8 +41,8 @@ Ogni giorno a mezzanotte il contatore aumenta automaticamente di 1 e il cartello
 Riservato agli admin. Collega un ruolo personalizzato (che assegni manualmente a un booster) al relativo utente, così che venga rimosso automaticamente se smette di boostare il server.
 
 - **`/customrole link`** — Collega un ruolo personalizzato a un booster.
-- **`/customrole unlink`** — Smette di tenere traccia del collegamento (non rimuove il ruolo dall'utente).
+- **`/customrole unlink`** — Smette di tenere traccia del collegamento (non rimuove il ruolo dall'utente). Il ruolo è opzionale: se omesso, scollega tutti i ruoli associati a quell'utente in una volta sola.
 - **`/customrole list`** — Elenca i collegamenti attivi, opzionalmente filtrati per utente.
 - **`/customrole toggle`** — Abilita/disabilita con un solo comando la rimozione automatica per l'intero server. I collegamenti restano salvati anche da disabilitata.
 
-Quando un utente perde il ruolo Booster di Discord (scadenza del boost, rimozione manuale, ecc.), tutti i ruoli personalizzati collegati a lui vengono rimossi automaticamente.
+Quando un utente perde il ruolo Booster di Discord (scadenza del boost, rimozione manuale, ecc.), tutti i ruoli personalizzati collegati a lui vengono rimossi automaticamente. Gli utenti con il ruolo `1090658915810820156` sono sempre esclusi da questa rimozione automatica, anche se hanno ruoli collegati e perdono il ruolo booster.
