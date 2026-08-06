@@ -71,6 +71,15 @@ const data = new SlashCommandBuilder()
 async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
 
+  if (!(await animeNightManager.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content:
+        '⚠️ The Anime Night feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   switch (sub) {
     case 'add':
       return handleAdd(interaction);

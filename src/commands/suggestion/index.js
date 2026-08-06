@@ -4,6 +4,7 @@ const { handleEdit } = require('./handlers/edit');
 const { handleApprove, handleReject } = require('./handlers/decide');
 const { handleChannelSet, handleChannelRemove } = require('./handlers/channel');
 const { handleList } = require('./handlers/list');
+const suggestionManager = require('../../features/suggestion/suggestionManager');
 
 const data = new SlashCommandBuilder()
   .setName('suggestion')
@@ -68,6 +69,14 @@ const data = new SlashCommandBuilder()
 async function execute(interaction) {
   const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
+
+  if (!(await suggestionManager.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content: '⚠️ The suggestion feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
 
   if (group === 'channel') {
     if (sub === 'set') return handleChannelSet(interaction);

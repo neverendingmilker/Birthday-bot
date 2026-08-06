@@ -50,6 +50,26 @@ async function setLastMessageId(guildId, messageId) {
   });
 }
 
+async function isEnabled(guildId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT enabled FROM incident_config WHERE guild_id = ?',
+    args: [guildId],
+  });
+  const row = result.rows[0];
+  return row ? Boolean(row.enabled) : true; // enabled by default until explicitly toggled off
+}
+
+async function setEnabled(guildId, enabled) {
+  await db.ready;
+  await db.client.execute({
+    sql: `INSERT INTO incident_config (guild_id, count, enabled)
+          VALUES (?, 0, ?)
+          ON CONFLICT(guild_id) DO UPDATE SET enabled = excluded.enabled`,
+    args: [guildId, enabled ? 1 : 0],
+  });
+}
+
 // Every guild that has a posting channel configured (used by the daily scheduler
 // to know which guilds' counters need to be incremented).
 async function getAllConfiguredGuilds() {
@@ -63,5 +83,7 @@ module.exports = {
   setChannel,
   setCount,
   setLastMessageId,
+  isEnabled,
+  setEnabled,
   getAllConfiguredGuilds,
 };

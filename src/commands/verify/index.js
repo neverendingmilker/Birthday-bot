@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { handleConfig } = require('./handlers/config');
 const { handleVerifyType } = require('./handlers/verifyAction');
 const { handleEdit } = require('./handlers/edit');
+const verifyManager = require('../../features/verify/verifyManager');
 
 const data = new SlashCommandBuilder()
   .setName('verify')
@@ -75,6 +76,14 @@ const data = new SlashCommandBuilder()
 
 async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
+
+  if (!(await verifyManager.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content: '⚠️ The verification feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
 
   switch (sub) {
     case 'config':

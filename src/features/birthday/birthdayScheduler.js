@@ -71,6 +71,10 @@ async function trySendGreeting(client, guildId, userId, year, guildConfig) {
 async function celebrateBirthdayIfDue(client, guildId, userId, day, month) {
   if (!isToday(day, month)) return { isToday: false };
 
+  if (!(await repo.isEnabled(guildId))) {
+    return { isToday: true, disabled: true };
+  }
+
   const year = new Date().getFullYear();
   const guildConfig = await repo.getGuildConfig(guildId);
 

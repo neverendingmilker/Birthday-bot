@@ -28,6 +28,8 @@ module.exports = {
     const message = reaction.message;
     if (!message.guild) return;
 
+    if (!(await suggestionManager.isEnabled(message.guild.id))) return; // feature disabled for this server
+
     const suggestion = await suggestionManager.getSuggestionByMessageId(message.id);
     if (!suggestion) return; // not a suggestion message
 

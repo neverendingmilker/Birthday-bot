@@ -26,6 +26,14 @@ async function setChannel(guildId, channelId) {
   await repo.setChannel(guildId, channelId);
 }
 
+async function isEnabled(guildId) {
+  return repo.isEnabled(guildId);
+}
+
+async function setEnabled(guildId, enabled) {
+  await repo.setEnabled(guildId, enabled);
+}
+
 // Regenerates the sign for the current count and posts it in the configured
 // channel, deleting the previous post first — only one sign is ever visible at
 // a time, same as the original bot.
@@ -81,6 +89,8 @@ async function incrementAllDue(client) {
 
   for (const row of guilds) {
     try {
+      if (!(await repo.isEnabled(row.guild_id))) continue; // feature disabled for this guild
+
       const newCount = Number(row.count ?? 0) + 1;
       await repo.setCount(row.guild_id, newCount);
       const result = await postUpdate(client, row.guild_id);
@@ -99,6 +109,8 @@ module.exports = {
   ValidationError,
   getGuildConfig,
   setChannel,
+  isEnabled,
+  setEnabled,
   postUpdate,
   setCount,
   reset,

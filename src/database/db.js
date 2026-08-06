@@ -24,7 +24,8 @@ async function createTables() {
         guild_id TEXT PRIMARY KEY,
         birthday_role_id TEXT,
         remove_after_seconds INTEGER NOT NULL DEFAULT 86400,
-        birthday_channel_id TEXT
+        birthday_channel_id TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS birthdays (
         guild_id TEXT NOT NULL,
@@ -55,6 +56,10 @@ async function createTables() {
         added_at INTEGER NOT NULL,
         added_by TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS anime_night_config (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1
+      )`,
       `CREATE TABLE IF NOT EXISTS verify_role_config (
         guild_id TEXT PRIMARY KEY,
         sub_give_role_id TEXT,
@@ -62,7 +67,8 @@ async function createTables() {
         maledom_give_role_id TEXT,
         remove_role_id TEXT,
         report_channel_id TEXT,
-        allowed_role_id TEXT
+        allowed_role_id TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS verify_reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,6 +90,10 @@ async function createTables() {
         created_by TEXT NOT NULL,
         updated_at INTEGER NOT NULL,
         PRIMARY KEY (guild_id, channel_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS sticky_config (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS booster_link_config (
         guild_id TEXT PRIMARY KEY,
@@ -114,11 +124,13 @@ async function createTables() {
         guild_id TEXT PRIMARY KEY,
         channel_id TEXT,
         count INTEGER NOT NULL DEFAULT 0,
-        last_message_id TEXT
+        last_message_id TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS suggestion_config (
         guild_id TEXT PRIMARY KEY,
-        channel_id TEXT
+        channel_id TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS suggestions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,6 +220,18 @@ async function migrate() {
   if (tableNames.includes('custom_role_links')) {
     await client.execute('INSERT OR IGNORE INTO booster_link_links SELECT * FROM custom_role_links');
     await client.execute('DROP TABLE custom_role_links');
+  }
+
+  // Adds the "enabled" toggle (default: on) to every guild config table that didn't
+  // originally have one. New installs already get it via createTables() above; this
+  // only runs against databases created before the toggle existed for that feature.
+  const enabledColumnTargets = ['birthday_guild_config', 'verify_role_config', 'suggestion_config', 'incident_config'];
+  for (const table of enabledColumnTargets) {
+    const tableColumns = await client.execute(`PRAGMA table_info(${table})`);
+    const tableColumnNames = tableColumns.rows.map((row) => row.name);
+    if (!tableColumnNames.includes('enabled')) {
+      await client.execute(`ALTER TABLE ${table} ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`);
+    }
   }
 }
 

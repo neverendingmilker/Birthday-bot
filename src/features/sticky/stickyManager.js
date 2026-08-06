@@ -9,6 +9,11 @@ const REPOST_DELAY_MS = 10_000; // gap between the old sticky disappearing and t
 // sent in the server (messageCreate fires very often).
 const cache = new Map();
 
+// In-memory cache of the "enabled" flag per guild, kept in sync with the
+// sticky_config table. Same reasoning as the sticky cache above: reading from
+// here avoids a DB round-trip on every single message sent in the server.
+const guildEnabledCache = new Map();
+
 // Channels where a repost is currently in flight. The gateway event for the
 // message we just sent via channel.send() can arrive BEFORE that call even
 // resolves (REST response and gateway event are two independent channels),
@@ -43,7 +48,27 @@ async function loadAll() {
       lastMessageId: row.last_message_id,
     });
   }
+
+  const configResult = await db.execute('SELECT guild_id, enabled FROM sticky_config');
+  guildEnabledCache.clear();
+  for (const row of configResult.rows) {
+    guildEnabledCache.set(row.guild_id, Boolean(row.enabled));
+  }
+
   return cache.size;
+}
+
+function isEnabled(guildId) {
+  return guildEnabledCache.has(guildId) ? guildEnabledCache.get(guildId) : true; // enabled by default
+}
+
+async function setEnabled(guildId, enabled) {
+  await db.execute({
+    sql: `INSERT INTO sticky_config (guild_id, enabled) VALUES (?, ?)
+          ON CONFLICT (guild_id) DO UPDATE SET enabled = excluded.enabled`,
+    args: [guildId, enabled ? 1 : 0],
+  });
+  guildEnabledCache.set(guildId, enabled);
 }
 
 function getStickyByChannel(channelId) {
@@ -136,6 +161,7 @@ async function removeSticky(guild, channelId) {
 async function handleNewMessage(message) {
   const sticky = cache.get(message.channel.id);
   if (!sticky) return;
+  if (!isEnabled(sticky.guildId)) return;
   if (postingInProgress.has(message.channel.id)) return; // our own repost is still in flight for this channel
   if (message.id === sticky.lastMessageId) return; // fallback safety check, same idea but after the fact
 
@@ -151,4 +177,6 @@ module.exports = {
   setSticky,
   removeSticky,
   handleNewMessage,
+  isEnabled,
+  setEnabled,
 };

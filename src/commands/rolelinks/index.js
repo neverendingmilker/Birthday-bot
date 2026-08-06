@@ -2,7 +2,6 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { handleLink } = require('./handlers/link');
 const { handleUnlink } = require('./handlers/unlink');
 const { handleList } = require('./handlers/list');
-const { handleToggle } = require('./handlers/toggle');
 
 const data = new SlashCommandBuilder()
   .setName('rolelink')
@@ -28,15 +27,7 @@ const data = new SlashCommandBuilder()
       .addRoleOption((opt) => opt.setName('role1').setDescription('role1 as it was set in /rolelink link').setRequired(true))
       .addRoleOption((opt) => opt.setName('role2').setDescription('role2 as it was set in /rolelink link').setRequired(true))
   )
-  .addSubcommand((sub) => sub.setName('list').setDescription('Lists all configured role links in this server'))
-  .addSubcommand((sub) =>
-    sub
-      .setName('toggle')
-      .setDescription('Enables or disables role link tracking for this server')
-      .addBooleanOption((opt) =>
-        opt.setName('enabled').setDescription('true to enable, false to disable').setRequired(true)
-      )
-  );
+  .addSubcommand((sub) => sub.setName('list').setDescription('Lists all configured role links in this server'));
 
 async function execute(interaction) {
   switch (interaction.options.getSubcommand()) {
@@ -46,8 +37,6 @@ async function execute(interaction) {
       return handleUnlink(interaction);
     case 'list':
       return handleList(interaction);
-    case 'toggle':
-      return handleToggle(interaction);
     default:
       return undefined;
   }

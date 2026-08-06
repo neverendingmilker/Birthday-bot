@@ -2,7 +2,6 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { handleLink } = require('./handlers/link');
 const { handleUnlink } = require('./handlers/unlink');
 const { handleList } = require('./handlers/list');
-const { handleToggle } = require('./handlers/toggle');
 
 const data = new SlashCommandBuilder()
   .setName('boosterlink')
@@ -32,14 +31,6 @@ const data = new SlashCommandBuilder()
       .setName('list')
       .setDescription('Lists tracked custom roles')
       .addUserOption((opt) => opt.setName('user').setDescription("Show only this user's tracked roles").setRequired(false))
-  )
-  .addSubcommand((sub) =>
-    sub
-      .setName('toggle')
-      .setDescription('Enables or disables custom role tracking for this server')
-      .addBooleanOption((opt) =>
-        opt.setName('enabled').setDescription('true to enable, false to disable').setRequired(true)
-      )
   );
 
 async function execute(interaction) {
@@ -50,8 +41,6 @@ async function execute(interaction) {
       return handleUnlink(interaction);
     case 'list':
       return handleList(interaction);
-    case 'toggle':
-      return handleToggle(interaction);
     default:
       return undefined;
   }

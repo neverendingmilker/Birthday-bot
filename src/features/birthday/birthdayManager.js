@@ -63,6 +63,14 @@ async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
 
+async function isEnabled(guildId) {
+  return repo.isEnabled(guildId);
+}
+
+async function setEnabled(guildId, enabled) {
+  await repo.setEnabled(guildId, enabled);
+}
+
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -126,6 +134,8 @@ module.exports = {
   setBirthdayChannel,
   setRemoveAfterDuration,
   getGuildConfig,
+  isEnabled,
+  setEnabled,
   getBirthdaysGroupedByMonth,
   // exposed for the scheduler
   repo,

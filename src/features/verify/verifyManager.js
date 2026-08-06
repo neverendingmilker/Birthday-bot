@@ -21,6 +21,14 @@ async function getGuildConfig(guildId) {
   return repo.getGuildConfig(guildId);
 }
 
+async function isEnabled(guildId) {
+  return repo.isEnabled(guildId);
+}
+
+async function setEnabled(guildId, enabled) {
+  await repo.setEnabled(guildId, enabled);
+}
+
 // Updates any combination of settings in one call: the give roles for the three
 // verification types, the single shared remove role, the report channel, and/or
 // the role allowed to run /verify sub, domme and maledom. `updates` keys (all
@@ -101,6 +109,8 @@ module.exports = {
   TYPE_COLORS,
   EDITABLE_FIELDS,
   getGuildConfig,
+  isEnabled,
+  setEnabled,
   setConfig,
   getRoleIdsForType,
   canUseVerifyCommands,

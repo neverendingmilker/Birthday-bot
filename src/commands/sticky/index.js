@@ -2,6 +2,7 @@ const { SlashCommandBuilder, ChannelType } = require('discord.js');
 const { handleAdd } = require('./handlers/add');
 const { handleRemove } = require('./handlers/remove');
 const { handleList } = require('./handlers/list');
+const stickyManager = require('../../features/sticky/stickyManager');
 
 const STICKY_CHANNEL_TYPES = [
   ChannelType.GuildText,
@@ -49,6 +50,14 @@ const data = new SlashCommandBuilder()
 
 async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
+
+  if (!stickyManager.isEnabled(interaction.guildId)) {
+    await interaction.reply({
+      content: '⚠️ The sticky message feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
 
   switch (sub) {
     case 'add':

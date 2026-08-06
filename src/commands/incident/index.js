@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { handleChannelSet } = require('./handlers/channel');
 const { handleSetNumber } = require('./handlers/setnumber');
 const { handleReset } = require('./handlers/reset');
@@ -6,6 +6,7 @@ const { handleReset } = require('./handlers/reset');
 const data = new SlashCommandBuilder()
   .setName('incident')
   .setDescription('"Days since last incident" sign, kept auto-updated in a channel')
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addSubcommand((sub) =>
     sub
       .setName('channel')

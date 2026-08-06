@@ -57,6 +57,26 @@ async function setBirthdayChannel(guildId, channelId) {
   });
 }
 
+async function isEnabled(guildId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT enabled FROM birthday_guild_config WHERE guild_id = ?',
+    args: [guildId],
+  });
+  const row = result.rows[0];
+  return row ? Boolean(row.enabled) : true; // enabled by default until explicitly toggled off
+}
+
+async function setEnabled(guildId, enabled) {
+  await db.ready;
+  await db.client.execute({
+    sql: `INSERT INTO birthday_guild_config (guild_id, remove_after_seconds, enabled)
+          VALUES (?, ${DEFAULT_REMOVE_AFTER_SECONDS}, ?)
+          ON CONFLICT(guild_id) DO UPDATE SET enabled = excluded.enabled`,
+    args: [guildId, enabled ? 1 : 0],
+  });
+}
+
 // --- User birthdays ---
 
 async function upsertBirthday(guildId, userId, day, month, year) {
@@ -167,6 +187,8 @@ async function recordGreeting(guildId, userId, year) {
 
 module.exports = {
   getGuildConfig,
+  isEnabled,
+  setEnabled,
   setBirthdayRole,
   setRemoveAfterSeconds,
   setBirthdayChannel,

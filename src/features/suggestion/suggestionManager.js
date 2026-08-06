@@ -62,6 +62,23 @@ async function removeChannel(guildId) {
   });
 }
 
+async function isEnabled(guildId) {
+  const result = await db.execute({
+    sql: 'SELECT enabled FROM suggestion_config WHERE guild_id = ?',
+    args: [guildId],
+  });
+  const row = result.rows[0];
+  return row ? Boolean(row.enabled) : true; // enabled by default until explicitly toggled off
+}
+
+async function setEnabled(guildId, enabled) {
+  await db.execute({
+    sql: `INSERT INTO suggestion_config (guild_id, enabled) VALUES (?, ?)
+          ON CONFLICT (guild_id) DO UPDATE SET enabled = excluded.enabled`,
+    args: [guildId, enabled ? 1 : 0],
+  });
+}
+
 // --- Suggestions ---
 
 async function getSuggestion(guildId, number) {
@@ -209,6 +226,8 @@ module.exports = {
   getChannelId,
   setChannel,
   removeChannel,
+  isEnabled,
+  setEnabled,
   getSuggestion,
   getSuggestionByMessageId,
   createSuggestion,

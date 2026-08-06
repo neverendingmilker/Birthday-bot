@@ -153,4 +153,6 @@ module.exports = {
   getSessionsList,
   editSession,
   formatDisplayDate,
+  isEnabled: repo.isEnabled,
+  setEnabled: repo.setEnabled,
 };

@@ -3,6 +3,7 @@ const { handleAdd } = require('./handlers/add');
 const { handleRemove } = require('./handlers/remove');
 const { handleConfig } = require('./handlers/config');
 const { handleList } = require('./handlers/list');
+const birthdayManager = require('../../features/birthday/birthdayManager');
 
 const data = new SlashCommandBuilder()
   .setName('birthday')
@@ -65,6 +66,14 @@ const data = new SlashCommandBuilder()
 
 async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
+
+  if (!(await birthdayManager.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content: '⚠️ The birthday feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
 
   switch (sub) {
     case 'add':
