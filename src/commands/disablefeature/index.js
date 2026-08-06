@@ -7,6 +7,7 @@ const FEATURES = {
   animenight: { label: 'Anime Night', manager: require('../../features/animenight/animeNightManager') },
   birthday: { label: 'Birthday', manager: require('../../features/birthday/birthdayManager') },
   boosterlink: { label: 'Booster Links', manager: require('../../features/boosterlinks/boosterLinkManager') },
+  comboroles: { label: 'Combined Role Search', manager: require('../../features/comboroles/comboRolesManager') },
   incident: { label: 'Incident Counter', manager: require('../../features/incident/incidentManager') },
   rolelink: { label: 'Role Links', manager: require('../../features/rolelinks/roleLinkManager') },
   sticky: { label: 'Sticky Messages', manager: require('../../features/sticky/stickyManager') },

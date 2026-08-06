@@ -132,6 +132,10 @@ async function createTables() {
         channel_id TEXT,
         enabled INTEGER NOT NULL DEFAULT 1
       )`,
+      `CREATE TABLE IF NOT EXISTS comboroles_config (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1
+      )`,
       `CREATE TABLE IF NOT EXISTS suggestions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id TEXT NOT NULL,

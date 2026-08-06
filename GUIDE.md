@@ -50,7 +50,7 @@ The sticky message is reposted at the bottom of the channel after each new messa
 
 ## 🔎 Combined role search (`/comboroles`)
 
-Shows the users who have **all** of the given roles, optionally excluding anyone who also has one of up to three "BUT" roles. Results are paginated. Open to everyone, no admin restriction.
+Shows the users who have **all** of the given roles, optionally excluding anyone who also has one of up to three "BUT" roles. Results are paginated. Open to everyone, no admin restriction — though an admin can turn the whole feature off with `/disablefeature`.
 
 ## 🪧 Days since last incident (`/incident`)
 

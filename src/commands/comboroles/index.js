@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { handleRun } = require('./handlers/run');
+const comboRolesManager = require('../../features/comboroles/comboRolesManager');
 
 const data = new SlashCommandBuilder()
   .setName('comboroles')
@@ -20,6 +21,14 @@ const data = new SlashCommandBuilder()
   );
 
 async function execute(interaction) {
+  if (!(await comboRolesManager.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content: '⚠️ The combined role search feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   return handleRun(interaction);
 }
 

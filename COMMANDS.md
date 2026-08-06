@@ -10,7 +10,7 @@ Full list of every slash command, grouped by feature. "[Admin]" marks a subcomma
 
 | Command | Description |
 |---|---|
-| `/disablefeature feature enabled` | [Admin] Enables or disables one of the bot's features for this server. `feature` is a dropdown: Anime Night, Birthday, Booster Links, Incident Counter, Role Links, Sticky Messages, Suggestions, Verification. Disabling a feature keeps its saved data, but stops its automatic behavior and blocks its commands until it's re-enabled. |
+| `/disablefeature feature enabled` | [Admin] Enables or disables one of the bot's features for this server. `feature` is a dropdown: Anime Night, Birthday, Booster Links, Combined Role Search, Incident Counter, Role Links, Sticky Messages, Suggestions, Verification. Disabling a feature keeps its saved data, but stops its automatic behavior and blocks its commands until it's re-enabled. |
 
 ---
 
@@ -84,7 +84,7 @@ Admins can also approve/reject by reacting directly to the suggestion's own mess
 
 | Command | Description |
 |---|---|
-| `/comboroles role1 [role2] [role3] [role4] [role5] [but1] [but2] [but3]` | Shows the users who have **all** the given roles, excluding (with `but1`-`but3`) anyone who also has one of those roles. Paginated results. Open to everyone. |
+| `/comboroles role1 [role2] [role3] [role4] [role5] [but1] [but2] [but3]` | Shows the users who have **all** the given roles, excluding (with `but1`-`but3`) anyone who also has one of those roles. Paginated results. Open to everyone; can be turned off server-wide via `/disablefeature`. |
 
 ---
 
