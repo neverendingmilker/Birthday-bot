@@ -1,7 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const repo = require('./starboardRepository');
 const config = require('../../config/config');
-const { startOfCurrentYear } = require('../../utils/timezoneDate');
+const { startOfCurrentYear, zonedTimeToUtc } = require('../../utils/timezoneDate');
 
 class ValidationError extends Error {}
 
@@ -624,18 +624,56 @@ async function fetchMessagesUntil(channel, { limit, sinceTimestamp }) {
   return collected;
 }
 
+// Parses "DD/MM/YY" or "DD/MM/YYYY" into midnight of that date, in the bot's configured
+// timezone. A 2-digit year follows the common pivot: 00–79 -> 20xx, 80–99 -> 19xx.
+function parseSinceDate(input) {
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(input.trim());
+  if (!match) {
+    throw new ValidationError('Invalid date for "since_date". Use DD/MM/YY or DD/MM/YYYY — e.g. 15/03/25 or 15/03/2025.');
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  let year = Number(match[3]);
+  if (match[3].length === 2) {
+    year += year <= 79 ? 2000 : 1900;
+  }
+
+  // Reject calendar-impossible dates (e.g. 31/02/25) instead of silently rolling over.
+  const roundTrip = new Date(year, month - 1, day);
+  const isValidCalendarDate =
+    roundTrip.getFullYear() === year && roundTrip.getMonth() === month - 1 && roundTrip.getDate() === day;
+  if (!isValidCalendarDate) {
+    throw new ValidationError(`"${input}" isn't a valid date.`);
+  }
+
+  const midnight = zonedTimeToUtc(year, month - 1, day, 0, 0, 0, config.timezone);
+  if (midnight.getTime() > Date.now()) {
+    throw new ValidationError(`"${input}" is in the future.`);
+  }
+
+  return midnight;
+}
+
 // Scans a starboard's watch channel for messages that already qualify but haven't been
-// picked up yet — either the most recent `limit` messages, or (if `sinceYearStart` is
-// true) everything back to midnight January 1st of the current year. This backfills a
-// starboard that was just created, or catches up on messages missed while offline,
-// instead of only reacting to things going forward.
-async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false, contentType } = {}) {
+// picked up yet — either the most recent `limit` messages, everything back to a specific
+// date (`sinceDateInput`), or (if `sinceYearStart` is true) everything back to midnight
+// January 1st of the current year. This backfills a starboard that was just created, or
+// catches up on messages missed while offline, instead of only reacting going forward.
+async function runLookback(
+  guild,
+  name,
+  { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false, sinceDateInput, contentType } = {}
+) {
   const board = await repo.getByName(guild.id, name);
   if (!board) {
     throw new ValidationError(`No starboard named "${name}" found in this server.`);
   }
   if (!(await repo.isEnabled(guild.id))) {
     throw new ValidationError('The Starboard feature is currently disabled in this server.');
+  }
+  if (sinceYearStart && sinceDateInput) {
+    throw new ValidationError('Use either "since_year_start" or "since_date", not both.');
   }
 
   const channel = await guild.channels.fetch(board.watch_channel_id).catch(() => null);
@@ -653,9 +691,14 @@ async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceY
     scanBoard = { ...board, content_type: contentType };
   }
 
-  const fetchOptions = sinceYearStart
-    ? { limit: LOOKBACK_YEAR_HARD_CAP, sinceTimestamp: startOfCurrentYear(config.timezone).getTime() }
-    : { limit };
+  let sinceTimestamp;
+  if (sinceDateInput) {
+    sinceTimestamp = parseSinceDate(sinceDateInput).getTime();
+  } else if (sinceYearStart) {
+    sinceTimestamp = startOfCurrentYear(config.timezone).getTime();
+  }
+
+  const fetchOptions = sinceTimestamp !== undefined ? { limit: LOOKBACK_YEAR_HARD_CAP, sinceTimestamp } : { limit };
 
   const messages = await fetchMessagesUntil(channel, fetchOptions);
   const stats = {

@@ -13,6 +13,7 @@ async function handleLookback(interaction) {
   const name = interaction.options.getString('name');
   const limit = interaction.options.getInteger('limit') ?? starboardManager.LOOKBACK_DEFAULT_LIMIT;
   const sinceYearStart = interaction.options.getBoolean('since_year_start') ?? false;
+  const sinceDateInput = interaction.options.getString('since_date') ?? undefined;
   const contentType = interaction.options.getString('content_type') ?? undefined;
 
   // Scanning message history (and, in Reactions mode, fetching users per reaction) can
@@ -21,7 +22,7 @@ async function handleLookback(interaction) {
 
   let stats;
   try {
-    stats = await starboardManager.runLookback(interaction.guild, name, { limit, sinceYearStart, contentType });
+    stats = await starboardManager.runLookback(interaction.guild, name, { limit, sinceYearStart, sinceDateInput, contentType });
   } catch (err) {
     if (err instanceof starboardManager.ValidationError) {
       await interaction.editReply({ content: `⚠️ ${err.message}` });
@@ -30,7 +31,11 @@ async function handleLookback(interaction) {
     throw err;
   }
 
-  const scope = sinceYearStart ? 'since January 1st' : `across the last ${limit} messages`;
+  const scope = sinceDateInput
+    ? `since ${sinceDateInput}`
+    : sinceYearStart
+      ? 'since January 1st'
+      : `across the last ${limit} messages`;
   const filterNote = ` (filter: **${starboardManager.CONTENT_TYPES[stats.contentType]}**)`;
   const summary =
     stats.votingMethod === 'buttons'
