@@ -29,6 +29,12 @@ const VOTING_METHODS = {
 };
 const DEFAULT_VOTING_METHOD = 'reactions';
 
+// Special sentinel accepted in the "emojis" field: counts a reaction with ANY emoji,
+// instead of requiring one of a specific set. Only valid for Reactions-mode boards —
+// Buttons mode needs one concrete emoji to actually show on the button.
+const ANY_EMOJI = 'any';
+const ANY_EMOJI_DISPLAY_FALLBACK = '⭐'; // shown on the starboard post's top line when in "any" mode
+
 async function isEnabled(guildId) {
   return repo.isEnabled(guildId);
 }
@@ -43,13 +49,21 @@ async function setEnabled(guildId, enabled) {
 // Stored as-is (the raw tokens the admin typed), so the list/edit commands can show
 // them back exactly as entered. Matching against real reactions happens via emojiKey().
 function parseEmojis(input) {
-  const tokens = input
+  const trimmedInput = input.trim();
+  if (trimmedInput.toLowerCase() === ANY_EMOJI) {
+    return [ANY_EMOJI]; // sentinel: match any emoji reaction, whichever it is
+  }
+
+  const tokens = trimmedInput
     .split(/[\s,]+/)
     .map((t) => t.trim())
     .filter(Boolean);
 
   if (tokens.length === 0) {
-    throw new ValidationError('Provide at least one emoji to count (e.g. "⭐" or "⭐ 🔥").');
+    throw new ValidationError('Provide at least one emoji to count (e.g. "⭐", "⭐ 🔥", or "any").');
+  }
+  if (tokens.some((t) => t.toLowerCase() === ANY_EMOJI)) {
+    throw new ValidationError('"any" can\'t be combined with other emojis — use it on its own to count a reaction with any emoji.');
   }
   if (tokens.length > MAX_EMOJIS) {
     throw new ValidationError(`You can configure at most ${MAX_EMOJIS} emojis per starboard.`);
@@ -90,6 +104,7 @@ function emojiKeyFromReactionEmoji(emoji) {
 }
 
 function formatEmojisForDisplay(tokens) {
+  if (tokens.length === 1 && tokens[0] === ANY_EMOJI) return 'Any emoji';
   return tokens.join(' ');
 }
 
@@ -163,6 +178,16 @@ function assertValidVotingMethod(votingMethod) {
   }
 }
 
+function assertEmojisCompatibleWithVotingMethod(emojis, votingMethod) {
+  if (votingMethod !== 'buttons') return;
+  if (emojis.length > 1) {
+    throw new ValidationError('Button voting only uses one emoji (shown on the button) — give just one.');
+  }
+  if (emojis[0] === ANY_EMOJI) {
+    throw new ValidationError('Button voting needs one specific emoji to show on the button — "any" only works with Reactions mode.');
+  }
+}
+
 function assertCanPostInChannel(guild, channel) {
   const botMember = guild.members.me;
   const perms = channel.permissionsFor(botMember);
@@ -198,9 +223,7 @@ async function create(guild, name, watchChannel, postChannel, threshold, emojisI
   const resolvedVotingMethod = votingMethod ?? DEFAULT_VOTING_METHOD;
   assertValidVotingMethod(resolvedVotingMethod);
   const emojis = parseEmojis(emojisInput);
-  if (resolvedVotingMethod === 'buttons' && emojis.length > 1) {
-    throw new ValidationError('Button voting only uses one emoji (shown on the button) — give just one.');
-  }
+  assertEmojisCompatibleWithVotingMethod(emojis, resolvedVotingMethod);
   assertCanReadChannel(guild, watchChannel);
   assertCanPostInChannel(guild, postChannel);
 
@@ -266,9 +289,7 @@ async function edit(guild, name, updates) {
 
   const finalVotingMethod = fields.voting_method ?? board.voting_method;
   const finalEmojis = emojis ?? JSON.parse(board.emojis);
-  if (finalVotingMethod === 'buttons' && finalEmojis.length > 1) {
-    throw new ValidationError('Button voting only uses one emoji (shown on the button) — give just one.');
-  }
+  assertEmojisCompatibleWithVotingMethod(finalEmojis, finalVotingMethod);
 
   if (Object.keys(fields).length === 0) {
     throw new ValidationError('Provide at least one field to change.');
@@ -319,7 +340,8 @@ function buildStarboardEmbed(message, count) {
 // as reactions are added or removed, without repeating info already in the embed footer.
 function formatStarLine(board, count) {
   const emojiTokens = JSON.parse(board.emojis);
-  return `${emojiTokens[0]} **${count}**`;
+  const displayEmoji = emojiTokens[0] === ANY_EMOJI ? ANY_EMOJI_DISPLAY_FALLBACK : emojiTokens[0];
+  return `${displayEmoji} **${count}**`;
 }
 
 // Recomputes the count for one board on one message and creates/updates/removes the
@@ -379,10 +401,13 @@ async function countAndSync(guild, board, message) {
     return;
   }
 
-  const emojiKeys = JSON.parse(board.emojis).map(emojiKeyFromToken);
-  const matchingReactions = [...message.reactions.cache.values()].filter((r) =>
-    emojiKeys.includes(emojiKeyFromReactionEmoji(r.emoji))
-  );
+  const emojiTokens = JSON.parse(board.emojis);
+  const matchingReactions =
+    emojiTokens[0] === ANY_EMOJI
+      ? [...message.reactions.cache.values()]
+      : [...message.reactions.cache.values()].filter((r) =>
+          emojiTokens.map(emojiKeyFromToken).includes(emojiKeyFromReactionEmoji(r.emoji))
+        );
 
   const userIds = new Set();
   for (const reaction of matchingReactions) {

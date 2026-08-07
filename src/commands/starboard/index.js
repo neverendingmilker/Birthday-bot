@@ -50,7 +50,7 @@ const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName('emojis')
-          .setDescription('Emoji(s) to count, separated by spaces/commas (e.g. "⭐" or "⭐ 🔥")')
+          .setDescription('Emoji(s) to count, space/comma separated (e.g. "⭐" or "⭐ 🔥"), or "any" for any emoji')
           .setRequired(true)
       )
       .addStringOption((opt) =>
@@ -95,7 +95,7 @@ const data = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName('emojis')
-          .setDescription('New emoji list, replaces the old one entirely (space/comma separated)')
+          .setDescription('New emoji list, replaces the old one entirely (space/comma separated, or "any")')
           .setRequired(false)
       )
       .addStringOption((opt) =>

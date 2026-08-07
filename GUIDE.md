@@ -58,7 +58,7 @@ Admin only (Manage Roles). Generic version of the concept above, not tied to boo
 
 Admin only (Manage Server). Collects the most popular messages of a channel (by reaction count) and reposts them to a dedicated channel. You can set up more than one starboard, each watching its own channel and posting to its own (different) channel.
 
-- **`/starboard create`** — Sets up a new starboard: give it a name, the channel to watch for reactions, the channel to post to, the minimum number of reactions needed, which emoji(s) count (one or more), and optionally a content-type filter (e.g. images only).
+- **`/starboard create`** — Sets up a new starboard: give it a name, the channel to watch for reactions, the channel to post to, the minimum number of reactions needed, which emoji(s) count (one or more, or `any` to count a reaction with any emoji at all), and optionally a content-type filter (e.g. images only).
 - **`/starboard edit`** — Changes any combination of the settings above for an existing starboard. The `name` option has autocomplete.
 - **`/starboard remove`** — Deletes a starboard. Already-posted messages are left as they are, but stop being updated.
 - **`/starboard list`** — Shows every starboard configured in the server.
