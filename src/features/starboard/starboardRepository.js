@@ -200,6 +200,15 @@ async function getVoteMessageByButtonMessageId(starboardId, buttonMessageId) {
   return result.rows[0] ?? null;
 }
 
+async function getVoteMessageByOriginalMessageId(starboardId, originalMessageId) {
+  await db.ready;
+  const result = await db.client.execute({
+    sql: 'SELECT * FROM starboard_vote_messages WHERE starboard_id = ? AND original_message_id = ?',
+    args: [starboardId, originalMessageId],
+  });
+  return result.rows[0] ?? null;
+}
+
 async function deleteVoteMessage(starboardId, originalMessageId) {
   await db.ready;
   await db.client.execute({
@@ -273,6 +282,7 @@ module.exports = {
   getPostsForOriginalMessage,
   createVoteMessage,
   getVoteMessageByButtonMessageId,
+  getVoteMessageByOriginalMessageId,
   deleteVoteMessage,
   getVoteMessagesForOriginalMessage,
   hasVoted,

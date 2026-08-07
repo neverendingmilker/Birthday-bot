@@ -500,6 +500,21 @@ function buildVoteButtonRow(board, count) {
   return new ActionRowBuilder().addComponents(button);
 }
 
+// Posts one vote button (starting at 0) as a reply to `message`, for `board`, and
+// records the mapping. Returns true on success, false if it couldn't post (e.g.
+// missing permissions) — callers just skip it and move on rather than fail hard.
+async function postVoteButton(message, board) {
+  try {
+    const row = buildVoteButtonRow(board, 0);
+    const sent = await message.reply({ components: [row], allowedMentions: { repliedUser: false } });
+    await repo.createVoteMessage(board.id, message.id, sent.id);
+    return true;
+  } catch (err) {
+    console.warn(`[starboard] Could not post the vote button for board "${board.name}" in guild ${message.guild.id}:`, err.message);
+    return false;
+  }
+}
+
 // Called from messageCreate for every new message in a channel watched by at least one
 // buttons-mode board. Posts one vote button per matching board, as a reply so it's
 // visually tied to the original message.
@@ -513,14 +528,7 @@ async function handleNewMessage(message) {
 
   for (const board of boards) {
     if (!matchesContentType(message, board.content_type)) continue;
-
-    try {
-      const row = buildVoteButtonRow(board, 0);
-      const sent = await message.reply({ components: [row], allowedMentions: { repliedUser: false } });
-      await repo.createVoteMessage(board.id, message.id, sent.id);
-    } catch (err) {
-      console.warn(`[starboard] Could not post the vote button for board "${board.name}" in guild ${message.guild.id}:`, err.message);
-    }
+    await postVoteButton(message, board);
   }
 }
 
@@ -575,6 +583,76 @@ async function handleVoteButtonClick(interaction) {
   await syncStarboardPost(interaction.guild, board, originalMessage, count);
 }
 
+const LOOKBACK_DEFAULT_LIMIT = 200;
+const LOOKBACK_MAX_LIMIT = 1000;
+const MESSAGE_FETCH_PAGE_SIZE = 100; // Discord's own per-call cap
+
+// Fetches up to `limit` of the most recent messages in `channel`, newest first,
+// paginating through Discord's 100-per-call cap. Stops early (without throwing) if it
+// runs out of history or loses read access partway through.
+async function fetchRecentMessages(channel, limit) {
+  const collected = [];
+  let before;
+
+  while (collected.length < limit) {
+    const pageSize = Math.min(MESSAGE_FETCH_PAGE_SIZE, limit - collected.length);
+    const batch = await channel.messages.fetch({ limit: pageSize, before }).catch(() => null);
+    if (!batch || batch.size === 0) break;
+
+    collected.push(...batch.values());
+    before = batch.last().id;
+    if (batch.size < pageSize) break; // reached the start of the channel's history
+  }
+
+  return collected;
+}
+
+// Scans the most recent `limit` messages of a starboard's watch channel and applies the
+// same eligibility logic the live events use — for a starboard that was just created
+// (or a stretch of messages missed while the bot was offline), this backfills it instead
+// of only reacting to things going forward.
+async function runLookback(guild, name, limit) {
+  const board = await repo.getByName(guild.id, name);
+  if (!board) {
+    throw new ValidationError(`No starboard named "${name}" found in this server.`);
+  }
+  if (!(await repo.isEnabled(guild.id))) {
+    throw new ValidationError('The Starboard feature is currently disabled in this server.');
+  }
+
+  const channel = await guild.channels.fetch(board.watch_channel_id).catch(() => null);
+  if (!channel || !channel.isTextBased()) {
+    throw new ValidationError(`Could not access <#${board.watch_channel_id}> — check the bot still has access to it.`);
+  }
+
+  const messages = await fetchRecentMessages(channel, limit);
+  const stats = { scanned: 0, qualified: 0, buttonsAdded: 0, votingMethod: board.voting_method };
+
+  for (const message of messages) {
+    if (message.author?.bot) continue;
+    stats.scanned++;
+
+    if (board.voting_method === 'buttons') {
+      if (!matchesContentType(message, board.content_type)) continue;
+      const existing = await repo.getVoteMessageByOriginalMessageId(board.id, message.id);
+      if (existing) continue; // already has a button, nothing to backfill
+
+      const posted = await postVoteButton(message, board);
+      if (posted) stats.buttonsAdded++;
+      continue;
+    }
+
+    // Reactions mode: reuse the exact same counting/sync logic the live event uses,
+    // so a lookback behaves identically to what would've happened in real time.
+    const hadPostBefore = !!(await repo.getPost(board.id, message.id));
+    await countAndSync(guild, board, message);
+    const hasPostAfter = !!(await repo.getPost(board.id, message.id));
+    if (!hadPostBefore && hasPostAfter) stats.qualified++;
+  }
+
+  return stats;
+}
+
 module.exports = {
   ValidationError,
   CONTENT_TYPES,
@@ -593,4 +671,7 @@ module.exports = {
   handleMessageDelete,
   handleNewMessage,
   handleVoteButtonClick,
+  runLookback,
+  LOOKBACK_DEFAULT_LIMIT,
+  LOOKBACK_MAX_LIMIT,
 };

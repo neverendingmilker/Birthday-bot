@@ -3,6 +3,7 @@ const { handleCreate } = require('./handlers/create');
 const { handleEdit } = require('./handlers/edit');
 const { handleRemove } = require('./handlers/remove');
 const { handleList } = require('./handlers/list');
+const { handleLookback } = require('./handlers/lookback');
 const starboardManager = require('../../features/starboard/starboardManager');
 
 const STARBOARD_CHANNEL_TYPES = [
@@ -121,7 +122,23 @@ const data = new SlashCommandBuilder()
         opt.setName('name').setDescription('Which starboard to remove').setRequired(true).setAutocomplete(true)
       )
   )
-  .addSubcommand((sub) => sub.setName('list').setDescription('Lists every starboard configured in this server'));
+  .addSubcommand((sub) => sub.setName('list').setDescription('Lists every starboard configured in this server'))
+  .addSubcommand((sub) =>
+    sub
+      .setName('lookback')
+      .setDescription("[Admin] Scan recent messages in a starboard's channel for ones that already qualify")
+      .addStringOption((opt) =>
+        opt.setName('name').setDescription('Which starboard to scan').setRequired(true).setAutocomplete(true)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName('limit')
+          .setDescription(`How many recent messages to scan (default ${starboardManager.LOOKBACK_DEFAULT_LIMIT})`)
+          .setMinValue(1)
+          .setMaxValue(starboardManager.LOOKBACK_MAX_LIMIT)
+          .setRequired(false)
+      )
+  );
 
 async function execute(interaction) {
   if (!(await starboardManager.isEnabled(interaction.guildId))) {
@@ -141,6 +158,8 @@ async function execute(interaction) {
       return handleRemove(interaction);
     case 'list':
       return handleList(interaction);
+    case 'lookback':
+      return handleLookback(interaction);
     default:
       return interaction.reply({ content: 'Unknown subcommand.', flags: MessageFlags.Ephemeral });
   }
