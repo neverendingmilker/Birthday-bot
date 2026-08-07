@@ -13,6 +13,7 @@ async function handleLookback(interaction) {
   const name = interaction.options.getString('name');
   const limit = interaction.options.getInteger('limit') ?? starboardManager.LOOKBACK_DEFAULT_LIMIT;
   const sinceYearStart = interaction.options.getBoolean('since_year_start') ?? false;
+  const contentType = interaction.options.getString('content_type') ?? undefined;
 
   // Scanning message history (and, in Reactions mode, fetching users per reaction) can
   // take a while on a busy channel — defer so Discord doesn't time out the interaction.
@@ -20,7 +21,7 @@ async function handleLookback(interaction) {
 
   let stats;
   try {
-    stats = await starboardManager.runLookback(interaction.guild, name, { limit, sinceYearStart });
+    stats = await starboardManager.runLookback(interaction.guild, name, { limit, sinceYearStart, contentType });
   } catch (err) {
     if (err instanceof starboardManager.ValidationError) {
       await interaction.editReply({ content: `⚠️ ${err.message}` });
@@ -30,10 +31,11 @@ async function handleLookback(interaction) {
   }
 
   const scope = sinceYearStart ? 'since January 1st' : `across the last ${limit} messages`;
+  const filterNote = ` (filter: **${starboardManager.CONTENT_TYPES[stats.contentType]}**)`;
   const summary =
     stats.votingMethod === 'buttons'
-      ? `✅ Scanned **${stats.scanned}** messages ${scope} and added a vote button to **${stats.buttonsAdded}** that didn't have one yet.`
-      : `✅ Scanned **${stats.scanned}** messages ${scope} — **${stats.qualified}** newly made it onto the starboard.`;
+      ? `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} and added a vote button to **${stats.buttonsAdded}** that didn't have one yet.`
+      : `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} — **${stats.qualified}** newly made it onto the starboard.`;
 
   await interaction.editReply({ content: summary });
 }

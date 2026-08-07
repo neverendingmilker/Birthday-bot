@@ -629,7 +629,7 @@ async function fetchMessagesUntil(channel, { limit, sinceTimestamp }) {
 // true) everything back to midnight January 1st of the current year. This backfills a
 // starboard that was just created, or catches up on messages missed while offline,
 // instead of only reacting to things going forward.
-async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false } = {}) {
+async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false, contentType } = {}) {
   const board = await repo.getByName(guild.id, name);
   if (!board) {
     throw new ValidationError(`No starboard named "${name}" found in this server.`);
@@ -643,32 +643,48 @@ async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceY
     throw new ValidationError(`Could not access <#${board.watch_channel_id}> — check the bot still has access to it.`);
   }
 
+  // `content_type` here only narrows down which messages THIS scan looks at — it's a
+  // one-off override, not a change to the starboard's saved configuration. Everything
+  // else about the board (threshold, post channel, emojis, ...) still comes from the
+  // real board record.
+  let scanBoard = board;
+  if (contentType !== undefined) {
+    assertValidContentType(contentType);
+    scanBoard = { ...board, content_type: contentType };
+  }
+
   const fetchOptions = sinceYearStart
     ? { limit: LOOKBACK_YEAR_HARD_CAP, sinceTimestamp: startOfCurrentYear(config.timezone).getTime() }
     : { limit };
 
   const messages = await fetchMessagesUntil(channel, fetchOptions);
-  const stats = { scanned: 0, qualified: 0, buttonsAdded: 0, votingMethod: board.voting_method };
+  const stats = {
+    scanned: 0,
+    qualified: 0,
+    buttonsAdded: 0,
+    votingMethod: scanBoard.voting_method,
+    contentType: scanBoard.content_type,
+  };
 
   for (const message of messages) {
     if (message.author?.bot) continue;
     stats.scanned++;
 
-    if (board.voting_method === 'buttons') {
-      if (!matchesContentType(message, board.content_type)) continue;
-      const existing = await repo.getVoteMessageByOriginalMessageId(board.id, message.id);
+    if (scanBoard.voting_method === 'buttons') {
+      if (!matchesContentType(message, scanBoard.content_type)) continue;
+      const existing = await repo.getVoteMessageByOriginalMessageId(scanBoard.id, message.id);
       if (existing) continue; // already has a button, nothing to backfill
 
-      const posted = await postVoteButton(message, board);
+      const posted = await postVoteButton(message, scanBoard);
       if (posted) stats.buttonsAdded++;
       continue;
     }
 
     // Reactions mode: reuse the exact same counting/sync logic the live event uses,
     // so a lookback behaves identically to what would've happened in real time.
-    const hadPostBefore = !!(await repo.getPost(board.id, message.id));
-    await countAndSync(guild, board, message);
-    const hasPostAfter = !!(await repo.getPost(board.id, message.id));
+    const hadPostBefore = !!(await repo.getPost(scanBoard.id, message.id));
+    await countAndSync(guild, scanBoard, message);
+    const hasPostAfter = !!(await repo.getPost(scanBoard.id, message.id));
     if (!hadPostBefore && hasPostAfter) stats.qualified++;
   }
 

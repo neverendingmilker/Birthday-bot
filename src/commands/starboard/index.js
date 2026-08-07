@@ -144,6 +144,13 @@ const data = new SlashCommandBuilder()
           .setDescription('Scan back to January 1st of this year instead of using a message count')
           .setRequired(false)
       )
+      .addStringOption((opt) =>
+        opt
+          .setName('content_type')
+          .setDescription("Only check this kind of message for this scan (default: the starboard's own filter)")
+          .addChoices(...CONTENT_TYPE_CHOICES)
+          .setRequired(false)
+      )
   );
 
 async function execute(interaction) {
