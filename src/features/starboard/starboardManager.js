@@ -1,5 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const repo = require('./starboardRepository');
+const config = require('../../config/config');
+const { startOfCurrentYear } = require('../../utils/timezoneDate');
 
 class ValidationError extends Error {}
 
@@ -585,12 +587,18 @@ async function handleVoteButtonClick(interaction) {
 
 const LOOKBACK_DEFAULT_LIMIT = 200;
 const LOOKBACK_MAX_LIMIT = 1000;
+// Higher ceiling used for "scan back to the start of the year" lookbacks, since a whole
+// year of messages can easily exceed the normal message-count limit above. Still bounded,
+// so a runaway-active channel can't turn this into an unbounded scan.
+const LOOKBACK_YEAR_HARD_CAP = 20000;
 const MESSAGE_FETCH_PAGE_SIZE = 100; // Discord's own per-call cap
 
 // Fetches up to `limit` of the most recent messages in `channel`, newest first,
 // paginating through Discord's 100-per-call cap. Stops early (without throwing) if it
-// runs out of history or loses read access partway through.
-async function fetchRecentMessages(channel, limit) {
+// runs out of history or loses read access partway through. If `sinceTimestamp` is
+// given, also stops as soon as it reaches a message older than that instant, and
+// excludes anything older from the result.
+async function fetchMessagesUntil(channel, { limit, sinceTimestamp }) {
   const collected = [];
   let before;
 
@@ -599,19 +607,29 @@ async function fetchRecentMessages(channel, limit) {
     const batch = await channel.messages.fetch({ limit: pageSize, before }).catch(() => null);
     if (!batch || batch.size === 0) break;
 
-    collected.push(...batch.values());
+    let reachedCutoff = false;
+    for (const message of batch.values()) {
+      if (sinceTimestamp !== undefined && message.createdTimestamp < sinceTimestamp) {
+        reachedCutoff = true;
+        break; // batch is newest-first, so everything from here on is even older
+      }
+      collected.push(message);
+      if (collected.length >= limit) break;
+    }
+
     before = batch.last().id;
-    if (batch.size < pageSize) break; // reached the start of the channel's history
+    if (batch.size < pageSize || reachedCutoff) break;
   }
 
   return collected;
 }
 
-// Scans the most recent `limit` messages of a starboard's watch channel and applies the
-// same eligibility logic the live events use — for a starboard that was just created
-// (or a stretch of messages missed while the bot was offline), this backfills it instead
-// of only reacting to things going forward.
-async function runLookback(guild, name, limit) {
+// Scans a starboard's watch channel for messages that already qualify but haven't been
+// picked up yet — either the most recent `limit` messages, or (if `sinceYearStart` is
+// true) everything back to midnight January 1st of the current year. This backfills a
+// starboard that was just created, or catches up on messages missed while offline,
+// instead of only reacting to things going forward.
+async function runLookback(guild, name, { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false } = {}) {
   const board = await repo.getByName(guild.id, name);
   if (!board) {
     throw new ValidationError(`No starboard named "${name}" found in this server.`);
@@ -625,7 +643,11 @@ async function runLookback(guild, name, limit) {
     throw new ValidationError(`Could not access <#${board.watch_channel_id}> — check the bot still has access to it.`);
   }
 
-  const messages = await fetchRecentMessages(channel, limit);
+  const fetchOptions = sinceYearStart
+    ? { limit: LOOKBACK_YEAR_HARD_CAP, sinceTimestamp: startOfCurrentYear(config.timezone).getTime() }
+    : { limit };
+
+  const messages = await fetchMessagesUntil(channel, fetchOptions);
   const stats = { scanned: 0, qualified: 0, buttonsAdded: 0, votingMethod: board.voting_method };
 
   for (const message of messages) {

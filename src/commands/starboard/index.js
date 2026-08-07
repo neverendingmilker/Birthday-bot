@@ -133,9 +133,15 @@ const data = new SlashCommandBuilder()
       .addIntegerOption((opt) =>
         opt
           .setName('limit')
-          .setDescription(`How many recent messages to scan (default ${starboardManager.LOOKBACK_DEFAULT_LIMIT})`)
+          .setDescription(`How many recent messages to scan (default ${starboardManager.LOOKBACK_DEFAULT_LIMIT}, ignored if since_year_start is on)`)
           .setMinValue(1)
           .setMaxValue(starboardManager.LOOKBACK_MAX_LIMIT)
+          .setRequired(false)
+      )
+      .addBooleanOption((opt) =>
+        opt
+          .setName('since_year_start')
+          .setDescription('Scan back to January 1st of this year instead of using a message count')
           .setRequired(false)
       )
   );
