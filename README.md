@@ -178,21 +178,25 @@ Also listens on `guildMemberUpdate`, same mechanism as the booster-link feature 
 
 ## Available commands (Starboard feature)
 
-Collects popular messages (by reaction count) and reposts them to a dedicated channel. A server can have several starboards, each with its own watch channel, post channel, threshold, emoji set and content-type filter — e.g. one board watching `#general` and posting to `#starboard`, and a separate one watching `#memes` and posting only images to `#best-memes`. All subcommands require the **Manage Server** permission.
+Collects popular messages (by vote count) and reposts them to a dedicated channel. A server can have several starboards, each with its own watch channel, post channel, threshold, emoji, content-type filter, and voting method — e.g. one board watching `#general` and posting to `#starboard`, and a separate one watching `#memes` and posting only images to `#best-memes` using vote buttons instead of reactions. All subcommands require the **Manage Server** permission.
 
-- `/starboard create name:<...> watch_channel:<#channel> post_channel:<#channel> threshold:<1-1000> emojis:<...> [content_type]` — creates a new starboard. `emojis` accepts one or more emojis (unicode or custom server emojis), separated by spaces or commas, e.g. `⭐` or `⭐ 🔥`. `watch_channel` and `post_channel` must be different channels. `content_type` (optional, see below) restricts what kind of message can qualify at all; defaults to "Any message".
-- `/starboard edit name:<...> [watch_channel] [post_channel] [threshold] [emojis] [content_type]` — updates any combination of an existing starboard's settings. The `name` option has autocomplete. Providing `emojis` replaces the whole list, it doesn't add to it.
-- `/starboard remove name:<...>` — deletes a starboard's configuration. Already-posted messages are left alone but stop being tracked/updated.
-- `/starboard list` — shows every starboard configured in the server, with its watch/post channels, threshold, emojis and content-type filter.
+- `/starboard create name:<...> watch_channel:<#channel> post_channel:<#channel> threshold:<1-1000> emojis:<...> [content_type] [voting_method]` — creates a new starboard. `emojis` accepts one or more emojis (unicode or custom server emojis) for **Reactions** mode, separated by spaces or commas, e.g. `⭐` or `⭐ 🔥`; **Buttons** mode only accepts exactly one emoji (it's shown on the button). `watch_channel` and `post_channel` must be different channels. `content_type` and `voting_method` are optional (see below), defaulting to "Any message" / "Reactions".
+- `/starboard edit name:<...> [watch_channel] [post_channel] [threshold] [emojis] [content_type] [voting_method]` — updates any combination of an existing starboard's settings. The `name` option has autocomplete. Providing `emojis` replaces the whole list, it doesn't add to it.
+- `/starboard remove name:<...>` — deletes a starboard's configuration. Already-posted messages/buttons are left alone but stop being tracked/updated.
+- `/starboard list` — shows every starboard configured in the server, with its watch/post channels, threshold, emojis, content-type filter and voting method.
 
-**Content-type filter** (`content_type` option) — restricts which messages are even eligible for a given starboard, regardless of reactions:
+**Content-type filter** (`content_type` option) — restricts which messages are even eligible for a given starboard, regardless of votes:
 - `Any message` (default) — no restriction.
 - `Text only` — must have text and no image/GIF/video.
 - `Images only` / `GIFs only` / `Videos only` — must include that specific kind of attachment or link embed (a GIF is never counted as a plain image, and vice versa).
 - `Any media` — image, GIF, or video, regardless of caption text.
 - `Text + media` — needs both a text caption and an attachment.
 
-A message qualifies for a starboard once **enough distinct people** have reacted to it with **at least one** of that board's configured emojis (reacting with more than one counted emoji only counts once per person; the message's own author reacting to their own message never counts). The starboard post's reaction count stays live as reactions are added or removed — and if the count drops back below the threshold, the post is **removed** from the starboard (a starboard reflects what's currently popular). If the original message is deleted, the corresponding starboard post is deleted too. The bot needs "View Channel" + "Read Message History" in the watch channel, and "View Channel" + "Send Messages" in the post channel.
+**Voting method** (`voting_method` option):
+- `Reactions` (default) — people react on the message itself with one of the configured emojis. Reacting with more than one of them only counts once per person, and the message's own author reacting to their own message never counts.
+- `Buttons` — the bot posts a reply with a single vote button under every new message in the watch channel that matches the content-type filter. Clicking the button casts your vote; clicking it again removes it (a toggle). You can't vote for your own message. The button's label always shows the live vote count, and it turns green once the threshold is reached.
+
+Either way, a message qualifies for a starboard once **enough distinct people** have voted for it. The starboard post's count stays live as votes are added or removed — and if it drops back below the threshold, the post is **removed** from the starboard (a starboard reflects what's currently popular). If the original message is deleted, its starboard post (and, in Buttons mode, its vote button) is deleted too. The bot needs "View Channel" + "Read Message History" in the watch channel, and "View Channel" + "Send Messages" in the post channel.
 
 ## Hosting
 

@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const repo = require('./starboardRepository');
 
 class ValidationError extends Error {}
@@ -20,6 +20,14 @@ const CONTENT_TYPES = {
   text_and_media: 'Text + media (needs both)',
 };
 const DEFAULT_CONTENT_TYPE = 'any';
+
+// How people cast their vote on a message: react with an emoji, or click a button the
+// bot posts under every new (matching) message in the watch channel.
+const VOTING_METHODS = {
+  reactions: 'Reactions',
+  buttons: 'Buttons',
+};
+const DEFAULT_VOTING_METHOD = 'reactions';
 
 async function isEnabled(guildId) {
   return repo.isEnabled(guildId);
@@ -149,6 +157,12 @@ function assertValidContentType(contentType) {
   }
 }
 
+function assertValidVotingMethod(votingMethod) {
+  if (!Object.prototype.hasOwnProperty.call(VOTING_METHODS, votingMethod)) {
+    throw new ValidationError(`Unknown voting method "${votingMethod}".`);
+  }
+}
+
 function assertCanPostInChannel(guild, channel) {
   const botMember = guild.members.me;
   const perms = channel.permissionsFor(botMember);
@@ -169,7 +183,7 @@ function assertCanReadChannel(guild, channel) {
 
 // --- CRUD used by the /starboard command handlers ---
 
-async function create(guild, name, watchChannel, postChannel, threshold, emojisInput, contentType, createdBy) {
+async function create(guild, name, watchChannel, postChannel, threshold, emojisInput, contentType, votingMethod, createdBy) {
   const trimmedName = name.trim();
   if (!trimmedName) {
     throw new ValidationError('Give this starboard a name.');
@@ -181,7 +195,12 @@ async function create(guild, name, watchChannel, postChannel, threshold, emojisI
   assertValidThreshold(threshold);
   const resolvedContentType = contentType ?? DEFAULT_CONTENT_TYPE;
   assertValidContentType(resolvedContentType);
+  const resolvedVotingMethod = votingMethod ?? DEFAULT_VOTING_METHOD;
+  assertValidVotingMethod(resolvedVotingMethod);
   const emojis = parseEmojis(emojisInput);
+  if (resolvedVotingMethod === 'buttons' && emojis.length > 1) {
+    throw new ValidationError('Button voting only uses one emoji (shown on the button) — give just one.');
+  }
   assertCanReadChannel(guild, watchChannel);
   assertCanPostInChannel(guild, postChannel);
 
@@ -198,10 +217,11 @@ async function create(guild, name, watchChannel, postChannel, threshold, emojisI
     threshold,
     JSON.stringify(emojis),
     resolvedContentType,
+    resolvedVotingMethod,
     createdBy
   );
 
-  return { name: trimmedName, emojis, contentType: resolvedContentType };
+  return { name: trimmedName, emojis, contentType: resolvedContentType, votingMethod: resolvedVotingMethod };
 }
 
 async function edit(guild, name, updates) {
@@ -234,10 +254,20 @@ async function edit(guild, name, updates) {
     assertValidContentType(updates.contentType);
     fields.content_type = updates.contentType;
   }
+  if (updates.votingMethod !== undefined) {
+    assertValidVotingMethod(updates.votingMethod);
+    fields.voting_method = updates.votingMethod;
+  }
   let emojis;
   if (updates.emojisInput) {
     emojis = parseEmojis(updates.emojisInput);
     fields.emojis = JSON.stringify(emojis);
+  }
+
+  const finalVotingMethod = fields.voting_method ?? board.voting_method;
+  const finalEmojis = emojis ?? JSON.parse(board.emojis);
+  if (finalVotingMethod === 'buttons' && finalEmojis.length > 1) {
+    throw new ValidationError('Button voting only uses one emoji (shown on the button) — give just one.');
   }
 
   if (Object.keys(fields).length === 0) {
@@ -245,7 +275,7 @@ async function edit(guild, name, updates) {
   }
 
   await repo.updateStarboard(guild.id, name, fields);
-  return { ...board, ...fields, emojis: emojis ?? JSON.parse(board.emojis) };
+  return { ...board, ...fields, emojis: finalEmojis };
 }
 
 async function remove(guildId, name) {
@@ -373,7 +403,9 @@ async function countAndSync(guild, board, message) {
 async function handleReactionChange(reaction, guild) {
   if (!(await repo.isEnabled(guild.id))) return;
 
-  const boards = await repo.getBoardsWatchingChannel(guild.id, reaction.message.channelId);
+  const boards = (await repo.getBoardsWatchingChannel(guild.id, reaction.message.channelId)).filter(
+    (b) => b.voting_method === 'reactions'
+  );
   if (boards.length === 0) return;
 
   let message;
@@ -392,7 +424,8 @@ async function handleReactionChange(reaction, guild) {
 
 // Called on messageDelete: removes every starboard post that pointed at the deleted
 // original message, across every board, so a starred-then-deleted message doesn't stay
-// visible on the starboard forever.
+// visible on the starboard forever. Also cleans up any vote-button message and vote
+// records tied to it.
 async function handleMessageDelete(message) {
   if (!message.guildId) return;
 
@@ -406,12 +439,123 @@ async function handleMessageDelete(message) {
     }
     await repo.deletePost(post.starboard_id, post.original_message_id);
   }
+
+  const voteMessages = await repo.getVoteMessagesForOriginalMessage(message.id);
+  for (const voteMessage of voteMessages) {
+    const board = await repo.getById(voteMessage.starboard_id);
+    if (board) {
+      const watchChannel = await message.client.channels.fetch(board.watch_channel_id).catch(() => null);
+      const buttonMessage = watchChannel
+        ? await watchChannel.messages.fetch(voteMessage.button_message_id).catch(() => null)
+        : null;
+      if (buttonMessage) await buttonMessage.delete().catch(() => {});
+    }
+    await repo.deleteVoteMessage(voteMessage.starboard_id, voteMessage.original_message_id);
+  }
+}
+
+// --- Button-vote mode ---
+// One button per (matching) new message in the watch channel, posted by the bot as a
+// reply. Clicking toggles that user's vote; the label shows the live count.
+
+function buildVoteButtonRow(board, count) {
+  const [emoji] = JSON.parse(board.emojis);
+  const button = new ButtonBuilder()
+    .setCustomId(`starboard:vote:${board.id}`)
+    .setLabel(String(count))
+    .setStyle(count >= board.threshold ? ButtonStyle.Success : ButtonStyle.Secondary);
+
+  const customEmojiMatch = emoji.match(/^<a?:(\w{2,32}):(\d{17,20})>$/);
+  if (customEmojiMatch) {
+    button.setEmoji({ name: customEmojiMatch[1], id: customEmojiMatch[2], animated: emoji.startsWith('<a:') });
+  } else {
+    button.setEmoji(emoji);
+  }
+
+  return new ActionRowBuilder().addComponents(button);
+}
+
+// Called from messageCreate for every new message in a channel watched by at least one
+// buttons-mode board. Posts one vote button per matching board, as a reply so it's
+// visually tied to the original message.
+async function handleNewMessage(message) {
+  if (!message.guild || message.author?.bot) return;
+  if (!(await repo.isEnabled(message.guild.id))) return;
+
+  const boards = (await repo.getBoardsWatchingChannel(message.guild.id, message.channelId)).filter(
+    (b) => b.voting_method === 'buttons'
+  );
+
+  for (const board of boards) {
+    if (!matchesContentType(message, board.content_type)) continue;
+
+    try {
+      const row = buildVoteButtonRow(board, 0);
+      const sent = await message.reply({ components: [row], allowedMentions: { repliedUser: false } });
+      await repo.createVoteMessage(board.id, message.id, sent.id);
+    } catch (err) {
+      console.warn(`[starboard] Could not post the vote button for board "${board.name}" in guild ${message.guild.id}:`, err.message);
+    }
+  }
+}
+
+// Called from interactionCreate for clicks on a "starboard:vote:<boardId>" button.
+async function handleVoteButtonClick(interaction) {
+  const boardId = Number(interaction.customId.split(':')[2]);
+  const board = await repo.getById(boardId);
+
+  if (!board || board.guild_id !== interaction.guildId || board.voting_method !== 'buttons') {
+    await interaction.reply({ content: '⚠️ This starboard no longer exists.', ephemeral: true });
+    return;
+  }
+  if (!(await repo.isEnabled(interaction.guildId))) {
+    await interaction.reply({
+      content: '⚠️ The Starboard feature is currently disabled in this server.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const voteMessage = await repo.getVoteMessageByButtonMessageId(board.id, interaction.message.id);
+  if (!voteMessage) {
+    await interaction.reply({ content: '⚠️ Could not find the original message for this vote.', ephemeral: true });
+    return;
+  }
+
+  const watchChannel = await interaction.guild.channels.fetch(board.watch_channel_id).catch(() => null);
+  const originalMessage = watchChannel
+    ? await watchChannel.messages.fetch(voteMessage.original_message_id).catch(() => null)
+    : null;
+  if (!originalMessage) {
+    await interaction.reply({ content: '⚠️ The original message no longer exists.', ephemeral: true });
+    return;
+  }
+
+  if (originalMessage.author?.id === interaction.user.id) {
+    await interaction.reply({ content: "You can't vote for your own message.", ephemeral: true });
+    return;
+  }
+
+  const alreadyVoted = await repo.hasVoted(board.id, voteMessage.original_message_id, interaction.user.id);
+  if (alreadyVoted) {
+    await repo.removeVote(board.id, voteMessage.original_message_id, interaction.user.id);
+  } else {
+    await repo.addVote(board.id, voteMessage.original_message_id, interaction.user.id);
+  }
+
+  const count = await repo.countVotes(board.id, voteMessage.original_message_id);
+  const row = buildVoteButtonRow(board, count);
+
+  await interaction.update({ components: [row] });
+  await syncStarboardPost(interaction.guild, board, originalMessage, count);
 }
 
 module.exports = {
   ValidationError,
   CONTENT_TYPES,
   DEFAULT_CONTENT_TYPE,
+  VOTING_METHODS,
+  DEFAULT_VOTING_METHOD,
   isEnabled,
   setEnabled,
   create,
@@ -422,4 +566,6 @@ module.exports = {
   formatEmojisForDisplay,
   handleReactionChange,
   handleMessageDelete,
+  handleNewMessage,
+  handleVoteButtonClick,
 };

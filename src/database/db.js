@@ -163,6 +163,7 @@ async function createTables() {
         threshold INTEGER NOT NULL,
         emojis TEXT NOT NULL,
         content_type TEXT NOT NULL DEFAULT 'any',
+        voting_method TEXT NOT NULL DEFAULT 'reactions',
         created_by TEXT,
         created_at INTEGER,
         UNIQUE (guild_id, name)
@@ -175,6 +176,18 @@ async function createTables() {
         starboard_message_id TEXT NOT NULL,
         reaction_count INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (starboard_id, original_message_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS starboard_vote_messages (
+        starboard_id INTEGER NOT NULL,
+        original_message_id TEXT NOT NULL,
+        button_message_id TEXT NOT NULL,
+        PRIMARY KEY (starboard_id, original_message_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS starboard_votes (
+        starboard_id INTEGER NOT NULL,
+        original_message_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        PRIMARY KEY (starboard_id, original_message_id, user_id)
       )`,
     ],
     'write'

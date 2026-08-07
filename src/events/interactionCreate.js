@@ -43,6 +43,19 @@ module.exports = {
       return;
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('starboard:vote:')) {
+      try {
+        const starboardManager = require('../features/starboard/starboardManager');
+        await starboardManager.handleVoteButtonClick(interaction);
+      } catch (err) {
+        console.error('Error handling starboard vote button click:', err);
+        await interaction
+          .reply({ content: '⚠️ An error occurred while registering your vote.', ephemeral: true })
+          .catch(() => null);
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.client.commands.get(interaction.commandName);

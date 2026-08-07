@@ -67,6 +67,8 @@ A message qualifies once enough different people have reacted with at least one 
 
 Optionally, each starboard can restrict which kind of message qualifies at all: **Any message** (default), **Text only**, **Images only**, **GIFs only**, **Videos only**, **Any media**, or **Text + media** (needs both a caption and an attachment).
 
+By default people vote by reacting on the message ("Reactions" mode). You can instead set a starboard to "Buttons" mode: the bot posts a vote button under every new matching message in the watch channel, and clicking it toggles your vote (click again to remove it). You can't vote for your own message, and the button's color turns green once the threshold is reached.
+
 ## 📌 Sticky messages (`/sticky`)
 
 Admin only.

@@ -14,6 +14,7 @@ const STARBOARD_CHANNEL_TYPES = [
 ];
 
 const CONTENT_TYPE_CHOICES = Object.entries(starboardManager.CONTENT_TYPES).map(([value, name]) => ({ name, value }));
+const VOTING_METHOD_CHOICES = Object.entries(starboardManager.VOTING_METHODS).map(([value, name]) => ({ name, value }));
 
 const data = new SlashCommandBuilder()
   .setName('starboard')
@@ -59,6 +60,13 @@ const data = new SlashCommandBuilder()
           .addChoices(...CONTENT_TYPE_CHOICES)
           .setRequired(false)
       )
+      .addStringOption((opt) =>
+        opt
+          .setName('voting_method')
+          .setDescription('Reactions (default) or a bot-posted vote button on every message')
+          .addChoices(...VOTING_METHOD_CHOICES)
+          .setRequired(false)
+      )
   )
   .addSubcommand((sub) =>
     sub
@@ -95,6 +103,13 @@ const data = new SlashCommandBuilder()
           .setName('content_type')
           .setDescription('New message-type restriction')
           .addChoices(...CONTENT_TYPE_CHOICES)
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('voting_method')
+          .setDescription('New voting method (reactions or a bot-posted vote button)')
+          .addChoices(...VOTING_METHOD_CHOICES)
           .setRequired(false)
       )
   )
