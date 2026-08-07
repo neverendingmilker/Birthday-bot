@@ -150,6 +150,32 @@ async function createTables() {
         decided_at INTEGER,
         UNIQUE (guild_id, number)
       )`,
+      `CREATE TABLE IF NOT EXISTS starboard_config (
+        guild_id TEXT PRIMARY KEY,
+        enabled INTEGER NOT NULL DEFAULT 1
+      )`,
+      `CREATE TABLE IF NOT EXISTS starboards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        watch_channel_id TEXT NOT NULL,
+        post_channel_id TEXT NOT NULL,
+        threshold INTEGER NOT NULL,
+        emojis TEXT NOT NULL,
+        content_type TEXT NOT NULL DEFAULT 'any',
+        created_by TEXT,
+        created_at INTEGER,
+        UNIQUE (guild_id, name)
+      )`,
+      `CREATE TABLE IF NOT EXISTS starboard_posts (
+        guild_id TEXT NOT NULL,
+        starboard_id INTEGER NOT NULL,
+        original_message_id TEXT NOT NULL,
+        original_channel_id TEXT NOT NULL,
+        starboard_message_id TEXT NOT NULL,
+        reaction_count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (starboard_id, original_message_id)
+      )`,
     ],
     'write'
   );

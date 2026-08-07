@@ -45,6 +45,13 @@ src/
         unlink.js
         list.js
         toggle.js
+    starboard/
+      index.js       (defines /starboard create, edit, remove, list + autocomplete)
+      handlers/
+        create.js
+        edit.js
+        remove.js
+        list.js
   features/         <- "Business logic" layer: one folder per feature
     birthday/
       birthdayManager.js     (validation and rules)
@@ -68,6 +75,9 @@ src/
     rolelinks/
       roleLinkManager.js     (validation + cascading removal logic, incl. "viceversa")
       roleLinkRepository.js  (SQL queries)
+    starboard/
+      starboardManager.js     (validation, emoji parsing, reaction counting, embed/post building)
+      starboardRepository.js  (SQL queries: per-guild boards + tracked posts)
   database/
     db.js           <- Turso database connection, schema for all features
   events/           <- Discord events (clientReady, interactionCreate...)
@@ -165,6 +175,24 @@ Generic version of the same idea, not tied to boosting: links any two roles so t
 - `/rolelink toggle enabled:<true/false>` — enables or disables role link auto-removal for the whole server.
 
 Also listens on `guildMemberUpdate`, same mechanism as the booster-link feature above. The bot's own role must sit above both roles involved in a link.
+
+## Available commands (Starboard feature)
+
+Collects popular messages (by reaction count) and reposts them to a dedicated channel. A server can have several starboards, each with its own watch channel, post channel, threshold, emoji set and content-type filter — e.g. one board watching `#general` and posting to `#starboard`, and a separate one watching `#memes` and posting only images to `#best-memes`. All subcommands require the **Manage Server** permission.
+
+- `/starboard create name:<...> watch_channel:<#channel> post_channel:<#channel> threshold:<1-1000> emojis:<...> [content_type]` — creates a new starboard. `emojis` accepts one or more emojis (unicode or custom server emojis), separated by spaces or commas, e.g. `⭐` or `⭐ 🔥`. `watch_channel` and `post_channel` must be different channels. `content_type` (optional, see below) restricts what kind of message can qualify at all; defaults to "Any message".
+- `/starboard edit name:<...> [watch_channel] [post_channel] [threshold] [emojis] [content_type]` — updates any combination of an existing starboard's settings. The `name` option has autocomplete. Providing `emojis` replaces the whole list, it doesn't add to it.
+- `/starboard remove name:<...>` — deletes a starboard's configuration. Already-posted messages are left alone but stop being tracked/updated.
+- `/starboard list` — shows every starboard configured in the server, with its watch/post channels, threshold, emojis and content-type filter.
+
+**Content-type filter** (`content_type` option) — restricts which messages are even eligible for a given starboard, regardless of reactions:
+- `Any message` (default) — no restriction.
+- `Text only` — must have text and no image/GIF/video.
+- `Images only` / `GIFs only` / `Videos only` — must include that specific kind of attachment or link embed (a GIF is never counted as a plain image, and vice versa).
+- `Any media` — image, GIF, or video, regardless of caption text.
+- `Text + media` — needs both a text caption and an attachment.
+
+A message qualifies for a starboard once **enough distinct people** have reacted to it with **at least one** of that board's configured emojis (reacting with more than one counted emoji only counts once per person; the message's own author reacting to their own message never counts). The starboard post's reaction count stays live as reactions are added or removed — and if the count drops back below the threshold, the post is **removed** from the starboard (a starboard reflects what's currently popular). If the original message is deleted, the corresponding starboard post is deleted too. The bot needs "View Channel" + "Read Message History" in the watch channel, and "View Channel" + "Send Messages" in the post channel.
 
 ## Hosting
 

@@ -10,6 +10,7 @@ const FEATURES = {
   comboroles: { label: 'Combined Role Search', manager: require('../../features/comboroles/comboRolesManager') },
   incident: { label: 'Incident Counter', manager: require('../../features/incident/incidentManager') },
   rolelink: { label: 'Role Links', manager: require('../../features/rolelinks/roleLinkManager') },
+  starboard: { label: 'Starboard', manager: require('../../features/starboard/starboardManager') },
   sticky: { label: 'Sticky Messages', manager: require('../../features/sticky/stickyManager') },
   suggestion: { label: 'Suggestions', manager: require('../../features/suggestion/suggestionManager') },
   verify: { label: 'Verification', manager: require('../../features/verify/verifyManager') },

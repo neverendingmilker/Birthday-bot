@@ -54,6 +54,19 @@ Admin only (Manage Roles). Generic version of the concept above, not tied to boo
 - **`/rolelink unlink`** — Removes a link (same role1/role2 order used when it was created).
 - **`/rolelink list`** — Lists every link configured in the server.
 
+## ⭐ Starboard (`/starboard`)
+
+Admin only (Manage Server). Collects the most popular messages of a channel (by reaction count) and reposts them to a dedicated channel. You can set up more than one starboard, each watching its own channel and posting to its own (different) channel.
+
+- **`/starboard create`** — Sets up a new starboard: give it a name, the channel to watch for reactions, the channel to post to, the minimum number of reactions needed, which emoji(s) count (one or more), and optionally a content-type filter (e.g. images only).
+- **`/starboard edit`** — Changes any combination of the settings above for an existing starboard. The `name` option has autocomplete.
+- **`/starboard remove`** — Deletes a starboard. Already-posted messages are left as they are, but stop being updated.
+- **`/starboard list`** — Shows every starboard configured in the server.
+
+A message qualifies once enough different people have reacted with at least one of the configured emojis (reacting with two counted emojis only counts once per person, and the message author's own reaction doesn't count). The reaction count on the starboard post stays live: if it later drops back below the threshold, the post is removed from the starboard. If the original message gets deleted, its starboard post is removed too.
+
+Optionally, each starboard can restrict which kind of message qualifies at all: **Any message** (default), **Text only**, **Images only**, **GIFs only**, **Videos only**, **Any media**, or **Text + media** (needs both a caption and an attachment).
+
 ## 📌 Sticky messages (`/sticky`)
 
 Admin only.
