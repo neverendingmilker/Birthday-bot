@@ -1,3 +1,5 @@
+const { MessageFlags } = require('discord.js');
+
 module.exports = {
   name: 'interactionCreate',
   once: false,
@@ -50,7 +52,7 @@ module.exports = {
       } catch (err) {
         console.error('Error handling starboard vote button click:', err);
         await interaction
-          .reply({ content: '⚠️ An error occurred while registering your vote.', ephemeral: true })
+          .reply({ content: '⚠️ An error occurred while registering your vote.', flags: MessageFlags.Ephemeral })
           .catch(() => null);
       }
       return;

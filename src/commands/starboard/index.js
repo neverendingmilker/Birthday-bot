@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { handleCreate } = require('./handlers/create');
 const { handleEdit } = require('./handlers/edit');
 const { handleRemove } = require('./handlers/remove');
@@ -127,7 +127,7 @@ async function execute(interaction) {
   if (!(await starboardManager.isEnabled(interaction.guildId))) {
     await interaction.reply({
       content: '⚠️ The Starboard feature is currently disabled in this server. An admin can re-enable it with `/disablefeature`.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -142,7 +142,7 @@ async function execute(interaction) {
     case 'list':
       return handleList(interaction);
     default:
-      return interaction.reply({ content: 'Unknown subcommand.', ephemeral: true });
+      return interaction.reply({ content: 'Unknown subcommand.', flags: MessageFlags.Ephemeral });
   }
 }
 

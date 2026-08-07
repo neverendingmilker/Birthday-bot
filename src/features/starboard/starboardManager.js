@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const repo = require('./starboardRepository');
 
 class ValidationError extends Error {}
@@ -505,20 +505,20 @@ async function handleVoteButtonClick(interaction) {
   const board = await repo.getById(boardId);
 
   if (!board || board.guild_id !== interaction.guildId || board.voting_method !== 'buttons') {
-    await interaction.reply({ content: '⚠️ This starboard no longer exists.', ephemeral: true });
+    await interaction.reply({ content: '⚠️ This starboard no longer exists.', flags: MessageFlags.Ephemeral });
     return;
   }
   if (!(await repo.isEnabled(interaction.guildId))) {
     await interaction.reply({
       content: '⚠️ The Starboard feature is currently disabled in this server.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   const voteMessage = await repo.getVoteMessageByButtonMessageId(board.id, interaction.message.id);
   if (!voteMessage) {
-    await interaction.reply({ content: '⚠️ Could not find the original message for this vote.', ephemeral: true });
+    await interaction.reply({ content: '⚠️ Could not find the original message for this vote.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -527,12 +527,12 @@ async function handleVoteButtonClick(interaction) {
     ? await watchChannel.messages.fetch(voteMessage.original_message_id).catch(() => null)
     : null;
   if (!originalMessage) {
-    await interaction.reply({ content: '⚠️ The original message no longer exists.', ephemeral: true });
+    await interaction.reply({ content: '⚠️ The original message no longer exists.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (originalMessage.author?.id === interaction.user.id) {
-    await interaction.reply({ content: "You can't vote for your own message.", ephemeral: true });
+    await interaction.reply({ content: "You can't vote for your own message.", flags: MessageFlags.Ephemeral });
     return;
   }
 

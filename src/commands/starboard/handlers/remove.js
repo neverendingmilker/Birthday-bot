@@ -1,11 +1,11 @@
-const { PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits, MessageFlags } = require('discord.js');
 const starboardManager = require('../../../features/starboard/starboardManager');
 
 async function handleRemove(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
       content: '❌ You need the "Manage Server" permission to use this command.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -14,13 +14,13 @@ async function handleRemove(interaction) {
   const removedCount = await starboardManager.remove(interaction.guildId, name);
 
   if (removedCount === 0) {
-    await interaction.reply({ content: `No starboard named "${name}" found in this server.`, ephemeral: true });
+    await interaction.reply({ content: `No starboard named "${name}" found in this server.`, flags: MessageFlags.Ephemeral });
     return;
   }
 
   await interaction.reply({
     content: `✅ Starboard **${name}** removed. Already-posted messages are left as-is, but won't be updated anymore.`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 

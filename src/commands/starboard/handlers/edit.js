@@ -1,11 +1,11 @@
-const { PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits, MessageFlags } = require('discord.js');
 const starboardManager = require('../../../features/starboard/starboardManager');
 
 async function handleEdit(interaction) {
   if (!interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
       content: '❌ You need the "Manage Server" permission to use this command.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -30,7 +30,7 @@ async function handleEdit(interaction) {
     });
   } catch (err) {
     if (err instanceof starboardManager.ValidationError) {
-      await interaction.reply({ content: `⚠️ ${err.message}`, ephemeral: true });
+      await interaction.reply({ content: `⚠️ ${err.message}`, flags: MessageFlags.Ephemeral });
       return;
     }
     throw err;
@@ -43,7 +43,7 @@ async function handleEdit(interaction) {
       `emojis ${starboardManager.formatEmojisForDisplay(updated.emojis)}, ` +
       `content filter **${starboardManager.CONTENT_TYPES[updated.content_type]}**, ` +
       `voting **${starboardManager.VOTING_METHODS[updated.voting_method]}**.`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 

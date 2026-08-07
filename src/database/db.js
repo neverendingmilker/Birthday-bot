@@ -276,6 +276,22 @@ async function migrate() {
       await client.execute(`ALTER TABLE ${table} ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`);
     }
   }
+
+  // The starboards table shipped without "content_type" and "voting_method" at first,
+  // then got them added in two later updates. Upgrades any database created against an
+  // earlier version of the table.
+  const starboardsTableExists = tableNames.includes('starboards');
+  if (starboardsTableExists) {
+    const starboardColumns = await client.execute('PRAGMA table_info(starboards)');
+    const starboardColumnNames = starboardColumns.rows.map((row) => row.name);
+
+    if (!starboardColumnNames.includes('content_type')) {
+      await client.execute("ALTER TABLE starboards ADD COLUMN content_type TEXT NOT NULL DEFAULT 'any'");
+    }
+    if (!starboardColumnNames.includes('voting_method')) {
+      await client.execute("ALTER TABLE starboards ADD COLUMN voting_method TEXT NOT NULL DEFAULT 'reactions'");
+    }
+  }
 }
 
 const ready = createTables()

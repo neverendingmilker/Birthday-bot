@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, MessageFlags } = require('discord.js');
 const starboardManager = require('../../../features/starboard/starboardManager');
 
 const EMBED_COLOR = 0xffd166;
@@ -7,7 +7,7 @@ async function handleList(interaction) {
   const boards = await starboardManager.listAll(interaction.guildId);
 
   if (boards.length === 0) {
-    await interaction.reply({ content: 'No starboards are currently configured in this server.', ephemeral: true });
+    await interaction.reply({ content: 'No starboards are currently configured in this server.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -20,7 +20,7 @@ async function handleList(interaction) {
 
   const embed = new EmbedBuilder().setColor(EMBED_COLOR).setTitle('Starboards').setDescription(lines.join('\n'));
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 module.exports = { handleList };
