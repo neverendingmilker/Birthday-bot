@@ -37,12 +37,20 @@ async function handleLookback(interaction) {
       ? 'since January 1st'
       : `across the last ${limit} messages`;
   const filterNote = ` (filter: **${starboardManager.CONTENT_TYPES[stats.contentType]}**)`;
+  const errorNote =
+    stats.errors > 0 ? ` ⚠️ **${stats.errors}** message${stats.errors === 1 ? '' : 's'} couldn't be checked due to an error — you can safely run this again to retry them.` : '';
   const summary =
     stats.votingMethod === 'buttons'
-      ? `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} and added a vote button to **${stats.buttonsAdded}** that didn't have one yet.`
-      : `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} — **${stats.qualified}** newly made it onto the starboard.`;
+      ? `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} and added a vote button to **${stats.buttonsAdded}** that didn't have one yet.${errorNote}`
+      : `✅ Scanned **${stats.scanned}** messages ${scope}${filterNote} — **${stats.qualified}** newly made it onto the starboard.${errorNote}`;
 
-  await interaction.editReply({ content: summary });
+  // A very long scan can outlast the interaction token's 15-minute lifetime — by this
+  // point the actual work above is already done and saved either way, so a failed
+  // reply here just means the summary itself couldn't be delivered, not that the scan
+  // failed silently.
+  await interaction.editReply({ content: summary }).catch((err) => {
+    console.warn('[starboard] Lookback finished but the summary reply could not be sent (interaction likely expired):', err.message);
+  });
 }
 
 module.exports = { handleLookback };

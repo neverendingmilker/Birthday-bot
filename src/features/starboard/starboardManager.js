@@ -349,6 +349,8 @@ function formatStarLine(board, count) {
 // Recomputes the count for one board on one message and creates/updates/removes the
 // corresponding starboard post accordingly. Falling back below the threshold removes
 // the post — a starboard reflects what's currently popular, not what once was.
+// Returns 'created' | 'updated' | 'removed' | 'unchanged' | 'failed', so callers (like
+// the lookback scan) can track outcomes without a second round-trip to re-check state.
 async function syncStarboardPost(guild, board, message, count) {
   const post = await repo.getPost(board.id, message.id);
 
@@ -358,8 +360,9 @@ async function syncStarboardPost(guild, board, message, count) {
       const starMessage = postChannel ? await postChannel.messages.fetch(post.starboard_message_id).catch(() => null) : null;
       if (starMessage) await starMessage.delete().catch(() => {});
       await repo.deletePost(board.id, message.id);
+      return 'removed';
     }
-    return;
+    return 'unchanged';
   }
 
   if (post) {
@@ -371,7 +374,7 @@ async function syncStarboardPost(guild, board, message, count) {
         .edit({ content: formatStarLine(board, count), embeds: [buildStarboardEmbed(message, count)] })
         .catch(() => {});
       await repo.updatePostCount(board.id, message.id, count);
-      return;
+      return 'updated';
     }
 
     // The starboard message was deleted by hand (or the channel is gone): forget the
@@ -380,7 +383,7 @@ async function syncStarboardPost(guild, board, message, count) {
   }
 
   const postChannel = await guild.channels.fetch(board.post_channel_id).catch(() => null);
-  if (!postChannel || !postChannel.isTextBased()) return;
+  if (!postChannel || !postChannel.isTextBased()) return 'failed';
 
   try {
     const sent = await postChannel.send({
@@ -388,8 +391,10 @@ async function syncStarboardPost(guild, board, message, count) {
       embeds: [buildStarboardEmbed(message, count)],
     });
     await repo.upsertPost(guild.id, board.id, message.id, message.channelId, sent.id, count);
+    return 'created';
   } catch (err) {
     console.warn(`[starboard] Could not post to the starboard channel for board "${board.name}" in guild ${guild.id}:`, err.message);
+    return 'failed';
   }
 }
 
@@ -397,10 +402,12 @@ async function syncStarboardPost(guild, board, message, count) {
 // configured emojis, then syncs the starboard post for that board/message pair.
 // Messages that don't match the board's content-type filter are treated as a 0 count
 // (which — via syncStarboardPost — also cleans up a stale post if the filter changed).
+// Counts distinct (non-bot, non-author) users who reacted with any of the board's
+// configured emojis, then syncs the starboard post for that board/message pair.
+// Returns the same status string as syncStarboardPost.
 async function countAndSync(guild, board, message) {
   if (!matchesContentType(message, board.content_type)) {
-    await syncStarboardPost(guild, board, message, 0);
-    return;
+    return syncStarboardPost(guild, board, message, 0);
   }
 
   const emojiTokens = JSON.parse(board.emojis);
@@ -422,7 +429,7 @@ async function countAndSync(guild, board, message) {
     }
   }
 
-  await syncStarboardPost(guild, board, message, userIds.size);
+  return syncStarboardPost(guild, board, message, userIds.size);
 }
 
 // Called on every messageReactionAdd/Remove for a message in a channel that at least
@@ -705,6 +712,7 @@ async function runLookback(
     scanned: 0,
     qualified: 0,
     buttonsAdded: 0,
+    errors: 0,
     votingMethod: scanBoard.voting_method,
     contentType: scanBoard.content_type,
   };
@@ -713,22 +721,29 @@ async function runLookback(
     if (message.author?.bot) continue;
     stats.scanned++;
 
-    if (scanBoard.voting_method === 'buttons') {
-      if (!matchesContentType(message, scanBoard.content_type)) continue;
-      const existing = await repo.getVoteMessageByOriginalMessageId(scanBoard.id, message.id);
-      if (existing) continue; // already has a button, nothing to backfill
+    // A single message failing (a transient Discord/Turso hiccup, a message that
+    // vanished mid-scan, ...) must not abort the whole lookback — log it, count it,
+    // and keep going. Without this, one bad message used to silently cut the scan
+    // short partway through a long channel.
+    try {
+      if (scanBoard.voting_method === 'buttons') {
+        if (!matchesContentType(message, scanBoard.content_type)) continue;
+        const existing = await repo.getVoteMessageByOriginalMessageId(scanBoard.id, message.id);
+        if (existing) continue; // already has a button, nothing to backfill
 
-      const posted = await postVoteButton(message, scanBoard);
-      if (posted) stats.buttonsAdded++;
-      continue;
+        const posted = await postVoteButton(message, scanBoard);
+        if (posted) stats.buttonsAdded++;
+        continue;
+      }
+
+      // Reactions mode: reuse the exact same counting/sync logic the live event uses,
+      // so a lookback behaves identically to what would've happened in real time.
+      const result = await countAndSync(guild, scanBoard, message);
+      if (result === 'created') stats.qualified++;
+    } catch (err) {
+      stats.errors++;
+      console.error(`[starboard] Lookback error on message ${message.id} (board "${scanBoard.name}"):`, err);
     }
-
-    // Reactions mode: reuse the exact same counting/sync logic the live event uses,
-    // so a lookback behaves identically to what would've happened in real time.
-    const hadPostBefore = !!(await repo.getPost(scanBoard.id, message.id));
-    await countAndSync(guild, scanBoard, message);
-    const hasPostAfter = !!(await repo.getPost(scanBoard.id, message.id));
-    if (!hadPostBefore && hasPostAfter) stats.qualified++;
   }
 
   return stats;
