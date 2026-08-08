@@ -324,7 +324,7 @@ function buildStarboardEmbed(message, count) {
       iconURL: message.author?.displayAvatarURL?.() ?? undefined,
     })
     .setDescription(message.content ? message.content.slice(0, 4000) : null)
-    .addFields({ name: 'Original message', value: `[Jump to message](${message.url})` })
+    .addFields({ name: '\u200b', value: `[Original message](${message.url})` })
     .setFooter({ text: `#${message.channel?.name ?? 'unknown-channel'}` })
     .setTimestamp(message.createdAt);
 
@@ -756,7 +756,11 @@ async function runLookback(
     untilTimestampExclusive,
   };
 
+  // fetchMessagesUntil paginates newest-first (that's how Discord's API and the cutoff
+  // logic work), but the scan itself processes oldest-to-newest — so buttons get posted,
+  // and posts appear on the starboard, in the same order the messages were actually sent.
   const messages = await fetchMessagesUntil(channel, fetchOptions);
+  messages.reverse();
   const stats = {
     scanned: 0,
     qualified: 0,
