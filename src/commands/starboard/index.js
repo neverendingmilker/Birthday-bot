@@ -157,6 +157,26 @@ const data = new SlashCommandBuilder()
           .addChoices(...CONTENT_TYPE_CHOICES)
           .setRequired(false)
       )
+      .addStringOption((opt) =>
+        opt
+          .setName('until_date')
+          .setDescription('Stop the scan at a specific date, DD/MM/YY or DD/MM/YYYY (inclusive of that whole day)')
+          .setRequired(false)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName('emojis')
+          .setDescription('Only count these emoji(s) for this scan (Reactions mode only)')
+          .setRequired(false)
+      )
+      .addIntegerOption((opt) =>
+        opt
+          .setName('threshold')
+          .setDescription('Use a different minimum vote count for this scan (Reactions mode only)')
+          .setMinValue(1)
+          .setMaxValue(1000)
+          .setRequired(false)
+      )
   );
 
 async function execute(interaction) {

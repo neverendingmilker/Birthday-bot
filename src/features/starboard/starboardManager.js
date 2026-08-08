@@ -594,20 +594,32 @@ async function handleVoteButtonClick(interaction) {
 
 const LOOKBACK_DEFAULT_LIMIT = 200;
 const LOOKBACK_MAX_LIMIT = 1000;
-// Higher ceiling used for "scan back to the start of the year" lookbacks, since a whole
-// year of messages can easily exceed the normal message-count limit above. Still bounded,
-// so a runaway-active channel can't turn this into an unbounded scan.
+// Higher ceiling used for date-bounded lookbacks (since_year_start / since_date), since a
+// long stretch of history can easily exceed the normal message-count limit above. Still
+// bounded, so a runaway-active channel can't turn this into an unbounded scan.
 const LOOKBACK_YEAR_HARD_CAP = 20000;
 const MESSAGE_FETCH_PAGE_SIZE = 100; // Discord's own per-call cap
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const DISCORD_EPOCH_MS = 1420070400000n; // 2015-01-01T00:00:00.000Z
 
-// Fetches up to `limit` of the most recent messages in `channel`, newest first,
-// paginating through Discord's 100-per-call cap. Stops early (without throwing) if it
-// runs out of history or loses read access partway through. If `sinceTimestamp` is
-// given, also stops as soon as it reaches a message older than that instant, and
-// excludes anything older from the result.
-async function fetchMessagesUntil(channel, { limit, sinceTimestamp }) {
+// Builds a Discord snowflake for a given UTC instant. Not a real object's ID — just a
+// synthetic cursor Discord's API accepts as a `before` value, letting a scan start from
+// an arbitrary point in time instead of only "now".
+function timestampToSnowflake(timestampMs) {
+  const ms = BigInt(Math.floor(timestampMs)) - DISCORD_EPOCH_MS;
+  return (ms << 22n).toString();
+}
+
+// Fetches up to `limit` messages in `channel`, newest first, paginating through
+// Discord's 100-per-call cap. Stops early (without throwing) if it runs out of history
+// or loses read access partway through.
+// - `sinceTimestamp` (optional): stop once a message older than this instant is reached,
+//   excluding it and anything older from the result.
+// - `untilTimestampExclusive` (optional): start from just before this instant instead of
+//   from the most recent message, so the scan only covers a specific window.
+async function fetchMessagesUntil(channel, { limit, sinceTimestamp, untilTimestampExclusive }) {
   const collected = [];
-  let before;
+  let before = untilTimestampExclusive !== undefined ? timestampToSnowflake(untilTimestampExclusive) : undefined;
 
   while (collected.length < limit) {
     const pageSize = Math.min(MESSAGE_FETCH_PAGE_SIZE, limit - collected.length);
@@ -633,10 +645,11 @@ async function fetchMessagesUntil(channel, { limit, sinceTimestamp }) {
 
 // Parses "DD/MM/YY" or "DD/MM/YYYY" into midnight of that date, in the bot's configured
 // timezone. A 2-digit year follows the common pivot: 00–79 -> 20xx, 80–99 -> 19xx.
-function parseSinceDate(input) {
+// `optionName` is only used to make the error message point at the right command option.
+function parseDayMonthYear(input, optionName) {
   const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(input.trim());
   if (!match) {
-    throw new ValidationError('Invalid date for "since_date". Use DD/MM/YY or DD/MM/YYYY — e.g. 15/03/25 or 15/03/2025.');
+    throw new ValidationError(`Invalid date for "${optionName}". Use DD/MM/YY or DD/MM/YYYY — e.g. 15/03/25 or 15/03/2025.`);
   }
 
   const day = Number(match[1]);
@@ -654,23 +667,35 @@ function parseSinceDate(input) {
     throw new ValidationError(`"${input}" isn't a valid date.`);
   }
 
-  const midnight = zonedTimeToUtc(year, month - 1, day, 0, 0, 0, config.timezone);
+  return zonedTimeToUtc(year, month - 1, day, 0, 0, 0, config.timezone);
+}
+
+function parseSinceDate(input) {
+  const midnight = parseDayMonthYear(input, 'since_date');
   if (midnight.getTime() > Date.now()) {
     throw new ValidationError(`"${input}" is in the future.`);
   }
-
   return midnight;
 }
 
+// `until_date` is inclusive of the whole day, so the actual cutoff used for fetching is
+// midnight of the FOLLOWING day (exclusive upper bound).
+function parseUntilDate(input) {
+  const midnight = parseDayMonthYear(input, 'until_date');
+  return new Date(midnight.getTime() + ONE_DAY_MS);
+}
+
 // Scans a starboard's watch channel for messages that already qualify but haven't been
-// picked up yet — either the most recent `limit` messages, everything back to a specific
-// date (`sinceDateInput`), or (if `sinceYearStart` is true) everything back to midnight
-// January 1st of the current year. This backfills a starboard that was just created, or
-// catches up on messages missed while offline, instead of only reacting going forward.
+// picked up yet — the most recent `limit` messages by default, or a date-bounded window
+// using `sinceDateInput`/`sinceYearStart` (start) and `untilDateInput` (end). Also
+// supports one-off overrides — `contentType`, `emojisInput`, `threshold` — that apply
+// only to this scan, without touching the starboard's saved configuration. This backfills
+// a starboard that was just created, or catches up on messages missed while offline,
+// instead of only reacting to things going forward.
 async function runLookback(
   guild,
   name,
-  { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false, sinceDateInput, contentType } = {}
+  { limit = LOOKBACK_DEFAULT_LIMIT, sinceYearStart = false, sinceDateInput, untilDateInput, contentType, emojisInput, threshold } = {}
 ) {
   const board = await repo.getByName(guild.id, name);
   if (!board) {
@@ -682,21 +707,26 @@ async function runLookback(
   if (sinceYearStart && sinceDateInput) {
     throw new ValidationError('Use either "since_year_start" or "since_date", not both.');
   }
-
-  const channel = await guild.channels.fetch(board.watch_channel_id).catch(() => null);
-  if (!channel || !channel.isTextBased()) {
-    throw new ValidationError(`Could not access <#${board.watch_channel_id}> — check the bot still has access to it.`);
+  if ((emojisInput !== undefined || threshold !== undefined) && board.voting_method !== 'reactions') {
+    throw new ValidationError('The "emojis" and "threshold" overrides only apply to Reactions-mode starboards.');
   }
 
-  // `content_type` here only narrows down which messages THIS scan looks at — it's a
-  // one-off override, not a change to the starboard's saved configuration. Everything
-  // else about the board (threshold, post channel, emojis, ...) still comes from the
-  // real board record.
-  let scanBoard = board;
+  // These only narrow/change what THIS scan looks at and how it counts — one-off
+  // overrides, not a change to the starboard's saved configuration. Everything else
+  // about the board (post channel, ...) still comes from the real board record.
+  const overrides = {};
   if (contentType !== undefined) {
     assertValidContentType(contentType);
-    scanBoard = { ...board, content_type: contentType };
+    overrides.content_type = contentType;
   }
+  if (emojisInput !== undefined) {
+    overrides.emojis = JSON.stringify(parseEmojis(emojisInput));
+  }
+  if (threshold !== undefined) {
+    assertValidThreshold(threshold);
+    overrides.threshold = threshold;
+  }
+  const scanBoard = Object.keys(overrides).length > 0 ? { ...board, ...overrides } : board;
 
   let sinceTimestamp;
   if (sinceDateInput) {
@@ -705,7 +735,26 @@ async function runLookback(
     sinceTimestamp = startOfCurrentYear(config.timezone).getTime();
   }
 
-  const fetchOptions = sinceTimestamp !== undefined ? { limit: LOOKBACK_YEAR_HARD_CAP, sinceTimestamp } : { limit };
+  let untilTimestampExclusive;
+  if (untilDateInput) {
+    untilTimestampExclusive = parseUntilDate(untilDateInput).getTime();
+    if (sinceTimestamp !== undefined && untilTimestampExclusive <= sinceTimestamp) {
+      throw new ValidationError('"until_date" must be after "since_date"/the start of the year.');
+    }
+  }
+
+  // All input validation is done at this point — only now do we reach out to Discord,
+  // so a bad option value fails fast without wasting an API call.
+  const channel = await guild.channels.fetch(board.watch_channel_id).catch(() => null);
+  if (!channel || !channel.isTextBased()) {
+    throw new ValidationError(`Could not access <#${board.watch_channel_id}> — check the bot still has access to it.`);
+  }
+
+  const fetchOptions = {
+    limit: sinceTimestamp !== undefined ? LOOKBACK_YEAR_HARD_CAP : limit,
+    sinceTimestamp,
+    untilTimestampExclusive,
+  };
 
   const messages = await fetchMessagesUntil(channel, fetchOptions);
   const stats = {
@@ -715,6 +764,8 @@ async function runLookback(
     errors: 0,
     votingMethod: scanBoard.voting_method,
     contentType: scanBoard.content_type,
+    emojis: JSON.parse(scanBoard.emojis),
+    threshold: scanBoard.threshold,
   };
 
   for (const message of messages) {
